@@ -3,6 +3,7 @@ package scform
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -81,13 +82,33 @@ func init() {
 }
 
 func GetStudentGrades(scformURL, username, password string) (*Student, error) {
-	// use already installed chrome browser
-	chromePath := "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-	l := launcher.New().Bin(chromePath).Headless(false)
 
-	// Launch and connect to the browser
-	url := l.MustLaunch()
-	browser := rod.New().ControlURL(url).MustConnect().NoDefaultDevice()
+	remoteURL := os.Getenv("SCFORM_REMOTE_URL")
+
+	var browser *rod.Browser
+
+	if remoteURL != "" {
+		browser = rod.New().ControlURL(remoteURL).MustConnect().NoDefaultDevice()
+
+	} else {
+
+		// use already installed chrome browser
+		chromePath := os.Getenv("CHROME_PATH")
+
+		var l *launcher.Launcher
+		if chromePath == "" {
+			path, _ := launcher.LookPath()
+
+			l = launcher.New().Bin(path).Headless(false)
+		} else {
+			l = launcher.New().Bin(chromePath).Headless(false)
+		}
+
+		// Launch and connect to the browser
+		url := l.MustLaunch()
+		browser = rod.New().ControlURL(url).MustConnect().NoDefaultDevice()
+	}
+
 	defer browser.Close()
 
 	page := browser.MustPage(scformURL)
