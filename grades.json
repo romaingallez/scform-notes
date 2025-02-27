@@ -1,0 +1,272 @@
+{
+  "Name": "GALLEZ",
+  "Grades": [
+    {
+      "Name": "UA1-9 - Docker - Kubernetes",
+      "Grades": [
+        {
+          "Value": 18.4,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Examen",
+          "Date": "2024-08-14T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 18.4
+    },
+    {
+      "Name": "UA2-3 - Intelligence artificie",
+      "Grades": [
+        {
+          "Value": 16,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Examen TP IA",
+          "Date": "2024-02-29T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "A rendre un document contenant les TP du cours. Prédictions, classification, reconnaissance d'images",
+          "Observation": ""
+        }
+      ],
+      "Average": 16
+    },
+    {
+      "Name": "UA2-4 - C #",
+      "Grades": [
+        {
+          "Value": 15.5,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Projet",
+          "Date": "2023-11-06T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "Projet réalisé individuellement avec présentation.",
+          "Observation": ""
+        }
+      ],
+      "Average": 15.5
+    },
+    {
+      "Name": "UA2-5 - Réalité Augmentée",
+      "Grades": [
+        {
+          "Value": 15,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Réalité Augmentée",
+          "Date": "2024-01-23T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "Soutenance de projets",
+          "Observation": "Bonne idée de carte de visite maitrisé"
+        }
+      ],
+      "Average": 15
+    },
+    {
+      "Name": "UA2-6 - Blockchain",
+      "Grades": [
+        {
+          "Value": 19,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Blockchain",
+          "Date": "2024-01-09T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 19
+    },
+    {
+      "Name": "UA2-7 - SQL Server",
+      "Grades": [
+        {
+          "Value": 15,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Exam 1",
+          "Date": "2023-12-05T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 15
+    },
+    {
+      "Name": "UA2-8 - PHP Laravel",
+      "Grades": [
+        {
+          "Value": 13,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Examen",
+          "Date": "2024-08-19T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 13
+    },
+    {
+      "Name": "UA2-9 - Python",
+      "Grades": [
+        {
+          "Value": 20,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Python",
+          "Date": "2024-05-22T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 20
+    },
+    {
+      "Name": "UA2-10 - React",
+      "Grades": [
+        {
+          "Value": 16,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "React - Projet final",
+          "Date": "2023-11-14T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 16
+    },
+    {
+      "Name": "UA2-11 - Devops",
+      "Grades": [
+        {
+          "Value": 19,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Devops",
+          "Date": "2024-05-31T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 19
+    },
+    {
+      "Name": "UA2-12 - Elasticsearch",
+      "Grades": [
+        {
+          "Value": 13,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "Elasticsearch",
+          "Date": "2024-05-31T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 13
+    },
+    {
+      "Name": "UA2-13 - Python pour DM et IA",
+      "Grades": [
+        {
+          "Value": 18,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "TD Python IA DM BDD",
+          "Date": "2025-01-06T00:00:00Z",
+          "Type": "Devoir maison",
+          "Remarks": "TD à rendre sur Teams sur le BigData (Python Spark, Cassandra, MongoDB, Archi)",
+          "Observation": "Très bon travail, du soin et des explications claires."
+        }
+      ],
+      "Average": 18
+    },
+    {
+      "Name": "UA2-14 - Entity Framwork",
+      "Grades": [
+        {
+          "Value": 18,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "EF Exam",
+          "Date": "2024-10-17T00:00:00Z",
+          "Type": "Autre devoir",
+          "Remarks": "QCM et TP",
+          "Observation": ""
+        }
+      ],
+      "Average": 18
+    },
+    {
+      "Name": "UA3-5 - Communication \u0026 Busine",
+      "Grades": [
+        {
+          "Value": 0,
+          "OutOf": 0,
+          "Coefficient": 1,
+          "Title": "Communication",
+          "Date": "2024-04-16T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 0
+    },
+    {
+      "Name": "UA3-6 - Gestion des risques \u0026",
+      "Grades": [
+        {
+          "Value": 14,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "QCM",
+          "Date": "2024-10-07T00:00:00Z",
+          "Type": "Devoir surveillé",
+          "Remarks": "",
+          "Observation": ""
+        },
+        {
+          "Value": 16,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "TPs",
+          "Date": "2024-10-07T00:00:00Z",
+          "Type": "Devoir surveillé",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 15
+    },
+    {
+      "Name": "UA3-9 - Assiduité et implicati",
+      "Grades": [
+        {
+          "Value": 20,
+          "OutOf": 20,
+          "Coefficient": 1,
+          "Title": "",
+          "Date": "0001-01-01T00:00:00Z",
+          "Type": "Examen",
+          "Remarks": "",
+          "Observation": ""
+        }
+      ],
+      "Average": 20
+    }
+  ],
+  "TotalAverage": 16.61875
+}
