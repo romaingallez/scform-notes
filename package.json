@@ -1,0 +1,26 @@
+{
+  "name": "link_tracking",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tailwindcss build -i ./assets/src/tailwind.css -o ./assets/dist/tailwind.css",
+    "watch": "tailwindcss build -i ./assets/src/tailwind.css -o ./assets/dist/tailwind.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "htmx.org": "^1.9.10",
+    "hyperscript.org": "^0.9.12",
+    "i": "^0.3.7",
+    "npm": "^10.4.0"
+  },
+  "devDependencies": {
+    "daisyui": "^4.12.24",
+    "tailwindcss": "^3.4.1",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "main": "tailwind.config.js",
+  "description": ""
+}

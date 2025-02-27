@@ -1,0 +1,226 @@
+package handlers
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
+	"scrapping/internals/scform"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+// GradeHandler holds the state and methods for handling grade-related requests
+type GradeHandler struct {
+	currentStudent *scform.Student
+}
+
+// NewGradeHandler creates a new instance of GradeHandler
+func NewGradeHandler() *GradeHandler {
+	return &GradeHandler{}
+}
+
+// HandleIndex renders the index page with default credentials
+func (h *GradeHandler) HandleIndex(c *fiber.Ctx) error {
+	username := os.Getenv("SCFORM_USERNAME")
+	password := os.Getenv("SCFORM_PASSWORD")
+	scformURL := os.Getenv("SCFORM_URL")
+
+	// Create a map with default values
+	data := fiber.Map{
+		"Title": "Visualiseur de Notes SCForm",
+	}
+
+	// Only add credentials if they exist in environment
+	if username != "" {
+		data["DefaultUsername"] = username
+	}
+	if password != "" {
+		data["DefaultPassword"] = password
+	}
+	if scformURL != "" {
+		data["DefaultURL"] = scformURL
+	}
+
+	return c.Render("index", data)
+}
+
+// HandleGrades processes the grade retrieval request
+func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
+	username := c.FormValue("username")
+	password := c.FormValue("password")
+	scformURL := c.FormValue("url")
+
+	// If any field is empty, use environment variables
+	if username == "" {
+		username = os.Getenv("SCFORM_USERNAME")
+	}
+	if password == "" {
+		password = os.Getenv("SCFORM_PASSWORD")
+	}
+	if scformURL == "" {
+		scformURL = os.Getenv("SCFORM_URL")
+	}
+
+	// Get grades
+	student, err := scform.GetStudentGrades(scformURL, username, password)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Store student data
+	h.currentStudent = student
+
+	// Return partial HTML for the grades table
+	return c.Render("partials/grades", fiber.Map{
+		"Student": student,
+		"SortBy":  "",
+		"SortDir": "",
+	}, "")
+}
+
+// HandleSearch handles the search and sort functionality
+func (h *GradeHandler) HandleSearch(c *fiber.Ctx) error {
+	if h.currentStudent == nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "No grades data available",
+		})
+	}
+
+	query := strings.ToLower(c.Query("q"))
+	sortBy := c.Query("sort")
+	sortDir := c.Query("dir")
+
+	// Create a copy of the student data
+	filteredStudent := &scform.Student{
+		Name:         h.currentStudent.Name,
+		TotalAverage: h.currentStudent.TotalAverage,
+		Grades:       []scform.Course{},
+	}
+
+	// Filter courses
+	for _, course := range h.currentStudent.Grades {
+		if query == "" || strings.Contains(strings.ToLower(course.Name), query) {
+			filteredStudent.Grades = append(filteredStudent.Grades, course)
+		}
+	}
+
+	// Sort grades within each course if requested
+	for i := range filteredStudent.Grades {
+		if sortBy != "" {
+			sort.Slice(filteredStudent.Grades[i].Grades, func(a, b int) bool {
+				gradeA := filteredStudent.Grades[i].Grades[a]
+				gradeB := filteredStudent.Grades[i].Grades[b]
+
+				isAsc := sortDir != "desc"
+
+				switch sortBy {
+				case "title":
+					if isAsc {
+						return strings.ToLower(gradeA.Title) < strings.ToLower(gradeB.Title)
+					}
+					return strings.ToLower(gradeA.Title) > strings.ToLower(gradeB.Title)
+				case "grade":
+					if isAsc {
+						return gradeA.Value < gradeB.Value
+					}
+					return gradeA.Value > gradeB.Value
+				case "coef":
+					if isAsc {
+						return gradeA.Coefficient < gradeB.Coefficient
+					}
+					return gradeA.Coefficient > gradeB.Coefficient
+				case "date":
+					if isAsc {
+						return gradeA.Date.Before(gradeB.Date)
+					}
+					return gradeA.Date.After(gradeB.Date)
+				case "type":
+					if isAsc {
+						return strings.ToLower(gradeA.Type) < strings.ToLower(gradeB.Type)
+					}
+					return strings.ToLower(gradeA.Type) > strings.ToLower(gradeB.Type)
+				}
+				return false
+			})
+		}
+	}
+
+	return c.Render("partials/grades", fiber.Map{
+		"Student": filteredStudent,
+		"SortBy":  sortBy,
+		"SortDir": sortDir,
+	}, "")
+}
+
+// HandlePrint renders the print-friendly version of the grades
+func (h *GradeHandler) HandlePrint(c *fiber.Ctx) error {
+	if h.currentStudent == nil {
+		return c.Redirect("/")
+	}
+
+	// Get current year for the academic year display
+	currentYear := time.Now().Year()
+	academicYear := fmt.Sprintf("%d-%d", currentYear-1, currentYear)
+
+	return c.Render("print", fiber.Map{
+		"Student":      h.currentStudent,
+		"AcademicYear": academicYear,
+	}, "layouts/no_partial")
+}
+
+// HandleExport handles the export of grades to JSON
+func (h *GradeHandler) HandleExport(c *fiber.Ctx) error {
+	if h.currentStudent == nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "No grades data available",
+		})
+	}
+
+	jsonData, err := scform.ExportToJSON(h.currentStudent)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	c.Set("Content-Disposition", "attachment; filename=grades.json")
+	c.Set("Content-Type", "application/json")
+	c.Set("HX-Redirect", "about:blank")
+	return c.SendStream(bytes.NewReader(jsonData))
+}
+
+// HandleExcelExport handles the export of grades to Excel
+func (h *GradeHandler) HandleExcelExport(c *fiber.Ctx) error {
+	if h.currentStudent == nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "No grades data available",
+		})
+	}
+
+	f, err := scform.ExportToExcel(h.currentStudent)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", "attachment; filename=grades.xlsx")
+
+	fReader, err := f.WriteToBuffer()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	fSize := fReader.Len()
+
+	return c.SendStream(fReader, fSize)
+}
