@@ -15,7 +15,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 
 # Build Go backend
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:1.24-alpine AS backend-builder
 WORKDIR /app
 
 # Install build dependencies
