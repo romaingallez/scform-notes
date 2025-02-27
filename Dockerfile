@@ -9,6 +9,7 @@ RUN npm install -g pnpm@latest
 COPY package.json pnpm-lock.yaml ./
 COPY postcss.config.js tailwind.config.js ./
 COPY assets/ ./assets/
+COPY views/ ./views/
 
 # Install dependencies and build frontend
 RUN pnpm install --frozen-lockfile
@@ -42,16 +43,17 @@ RUN apk add --no-cache ca-certificates
 # Copy built assets from frontend
 COPY --from=frontend-builder /app/assets/dist /app/assets/dist
 COPY --from=frontend-builder /app/assets/src /app/assets/src
+COPY --from=frontend-builder /app/views /app/views
 
 # Copy the Go binary
 COPY --from=backend-builder /app/main /app/
-COPY views/ ./views/
+
 
 # Set environment variables
 ENV GIN_MODE=release
 
 # Expose the port your application runs on
-EXPOSE 8080
+EXPOSE 3000
 
 # Run the application
 CMD ["./main"]
