@@ -1,4 +1,4 @@
-package main
+package scform
 
 import (
 	"fmt"
@@ -94,6 +94,8 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 	page.MustWaitDOMStable()
 	page.MustElement("input[id='MainContent_LoginUser_UserName']").MustInput(username)
 	page.MustElement("input[id='MainContent_LoginUser_Password']").MustInput(password)
+
+	page.MustWaitStable()
 
 	page.MustEval(`() => {
 		LoginBt();
