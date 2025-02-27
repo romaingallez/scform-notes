@@ -22,7 +22,7 @@ importers:
         version: 10.9.2
     devDependencies:
       daisyui:
-        specifier: ^4.7.2
+        specifier: ^4.12.24
         version: 4.12.24(postcss@8.5.3)
       tailwindcss:
         specifier: ^3.4.1
