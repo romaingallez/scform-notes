@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"os"
 	"scrapping/internals/utils"
 	"scrapping/internals/web/router"
+	"strings"
 
 	"github.com/gofiber/template/html/v2"
 	"github.com/joho/godotenv"
@@ -13,11 +15,16 @@ func init() {
 	// setup logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	// load environment variables
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file:", err)
+	ENV := strings.ToLower(os.Getenv("ENV"))
+
+	// if ENV is prod or production, do not load .env file else load it
+	if ENV != "prod" && ENV != "production" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file:", err)
+		}
 	}
+
 }
 
 func main() {
