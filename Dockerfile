@@ -3,7 +3,7 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@latest
 
 # Copy frontend-related files
 COPY package.json pnpm-lock.yaml ./
