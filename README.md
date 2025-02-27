@@ -10,6 +10,7 @@ A web application built with Go (Fiber) and modern frontend technologies for man
 - Form data processing and management
 - Asset management system
 - Environment configuration support
+- Live reload development with Air
 
 ## 🛠 Tech Stack
 
@@ -17,6 +18,7 @@ A web application built with Go (Fiber) and modern frontend technologies for man
 - Go (Fiber web framework)
 - HTML Templates
 - Environment configuration with godotenv
+- Air (Live reload)
 
 ### Frontend
 - HTMX for dynamic interactions
@@ -28,6 +30,7 @@ A web application built with Go (Fiber) and modern frontend technologies for man
 
 - Go 1.x
 - Node.js and pnpm
+- Air (Go live reload tool)
 - Environment variables (copy from .env.example)
 
 ## 🚀 Getting Started
@@ -50,7 +53,11 @@ A web application built with Go (Fiber) and modern frontend technologies for man
 
 5. Run the application:
    ```bash
+   # Using standard Go
    go run main.go
+
+   # Using Air for live reload during development
+   air
    ```
 
 The application will be available at `http://localhost:3000`
@@ -66,6 +73,14 @@ The application will be available at `http://localhost:3000`
 ### Backend Development
 - The application uses Go modules for dependency management
 - Main application entry point is in `main.go`
+- For live reload during development, use Air:
+  ```bash
+  # Install Air if you haven't already
+  go install github.com/cosmtrek/air@latest
+
+  # Run the application with Air
+  air
+  ```
 - Core logic is organized in the `internals` directory:
   - `scform/`: Form-related functionality
   - `utils/`: Utility functions and helpers
