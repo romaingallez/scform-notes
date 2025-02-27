@@ -1,8 +1,9 @@
-package main
+package scform
 
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -95,6 +96,8 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 	page.MustElement("input[id='MainContent_LoginUser_UserName']").MustInput(username)
 	page.MustElement("input[id='MainContent_LoginUser_Password']").MustInput(password)
 
+	page.MustWaitStable()
+
 	page.MustEval(`() => {
 		LoginBt();
 	}`)
@@ -175,11 +178,16 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 			if titleSpan, err := gradeDiv.Element("span[id*='Label7']"); err == nil {
 				if titleText, err := titleSpan.Text(); err == nil {
 					titleText = strings.TrimSpace(titleText)
-					parts := strings.Split(titleText, "du")
-					if len(parts) == 2 {
-						grade.Title = strings.TrimSpace(parts[0])
-						dateStr := strings.TrimSpace(parts[1])
+					// Use regex to match the pattern: any text followed by "du" and a date
+					re := regexp.MustCompile(`(.*?)\s+du\s+(\d{2}/\d{2}/\d{4})`)
+					matches := re.FindStringSubmatch(titleText)
+					if len(matches) == 3 {
+						grade.Title = strings.TrimSpace(matches[1])
+						dateStr := strings.TrimSpace(matches[2])
 						grade.Date = parseDate(dateStr)
+					} else {
+						// If no date pattern found, use the entire text as title
+						grade.Title = titleText
 					}
 				}
 			}
