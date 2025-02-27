@@ -1,0 +1,5 @@
+.env
+grades.json
+node_modules/
+assets/dist/
+tmp/

@@ -1,34 +1,37 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"os"
+	"scrapping/internals/utils"
+	"scrapping/internals/web/router"
+
+	"github.com/gofiber/template/html/v2"
+	"github.com/joho/godotenv"
 )
 
 func init() {
 	// setup logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	// load environment variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file:", err)
+	}
 }
 
 func main() {
-	scformURL := "https://mewo.sc-form.net/"
-	username := "GALLEZ"
-	password := "[REDACTED]"
+	utils.InitAssets()
 
-	student, err := GetStudentGrades(scformURL, username, password)
-	if err != nil {
-		log.Fatal("Failed to get student grades:", err)
-	}
+	engine := html.New("./views/", ".tpl")
+	engine.Reload(false)
 
-	// Create the JSON output
-	jsonData, err := json.MarshalIndent(student, "", "  ")
-	if err != nil {
-		log.Fatal("Failed to marshal student data to JSON:", err)
-	}
+	// Initialize the router with all middleware
+	app := router.New(engine)
 
-	err = os.WriteFile("grades.json", jsonData, 0644)
-	if err != nil {
-		log.Fatal("Failed to write grades to file:", err)
-	}
+	// Setup all routes
+	router.SetupRoutes(app)
+
+	// Start server
+	log.Fatal(app.Listen(":3000"))
 }
