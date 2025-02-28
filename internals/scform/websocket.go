@@ -33,13 +33,13 @@ func (w *WebSocket) Send(b []byte) error {
 		debugLog("Error sending WebSocket message: %v", err)
 		return err
 	}
-	debugLog("WebSocket message sent successfully")
+	// debugLog("WebSocket message sent successfully")
 	return nil
 }
 
 // Read reads data from the WebSocket connection
 func (w *WebSocket) Read() ([]byte, error) {
-	debugLog("Reading from WebSocket connection...")
+	// debugLog("Reading from WebSocket connection...")
 	data, err := wsutil.ReadServerText(w.conn)
 	if err != nil {
 		debugLog("Error reading from WebSocket: %v", err)
