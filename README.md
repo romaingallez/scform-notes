@@ -1,5 +1,7 @@
 # SCForm Notes
 
+[Version française](README.fr.md)
+
 A web application built with Go (Fiber) and modern frontend technologies for managing and processing form data. The application uses HTMX for dynamic interactions and Tailwind CSS for styling.
 
 ## 🚀 Features
