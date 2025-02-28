@@ -149,9 +149,11 @@
         const progressBar = document.getElementById('progress-bar');
         const progressMessage = document.getElementById('progress-message');
         progressContainer.classList.remove('hidden');
-        
+
+        // if we are on http, use ws, if we are on https, use wss   
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         // Create WebSocket connection
-        ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
