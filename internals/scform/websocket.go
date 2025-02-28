@@ -27,7 +27,7 @@ func NewWebSocket(u string) *WebSocket {
 
 // Send sends data through the WebSocket connection
 func (w *WebSocket) Send(b []byte) error {
-	debugLog("Sending WebSocket message, length: %d bytes", len(b))
+	// debugLog("Sending WebSocket message, length: %d bytes", len(b))
 	err := wsutil.WriteClientText(w.conn, b)
 	if err != nil {
 		debugLog("Error sending WebSocket message: %v", err)
@@ -45,6 +45,6 @@ func (w *WebSocket) Read() ([]byte, error) {
 		debugLog("Error reading from WebSocket: %v", err)
 		return nil, err
 	}
-	debugLog("Received WebSocket message, length: %d bytes", len(data))
+	// debugLog("Received WebSocket message, length: %d bytes", len(data))
 	return data, nil
 }
