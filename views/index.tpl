@@ -150,8 +150,13 @@
 
         // if we are on http, use ws, if we are on https, use wss   
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+        const web_socket_url = `${protocol}//${window.location.host}/ws`;
+
+        console.log(web_socket_url);
+
         // Create WebSocket connection
-        ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+        ws = new WebSocket(web_socket_url);
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);

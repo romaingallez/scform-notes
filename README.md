@@ -62,6 +62,61 @@ A web application built with Go (Fiber) and modern frontend technologies for man
 
 The application will be available at `http://localhost:3000`
 
+## 🐳 Docker Deployment
+
+You can also run the application using Docker:
+
+1. Build the Docker image:
+   ```bash
+   docker build -t scform-notes .
+   ```
+
+2. Create a `.env.docker` file from the example:
+   ```bash
+   cp .env.docker.example .env.docker
+   ```
+   
+   Make sure to update the environment variables in `.env.docker` as needed.
+
+3. Run browserless/chrome container (required for form processing):
+   ```bash
+   docker run -d -p 1337:3000 --rm --name chrome browserless/chrome
+   ```
+
+4. Run the application container:
+   ```bash
+   docker run -d -p 3000:3000 --rm --env-file .env.docker --name scform-notes scform-notes
+   ```
+
+5. Access the application at `http://localhost:3000`
+
+### Docker Compose (Alternative)
+
+You can also use Docker Compose to run both containers:
+
+1. Create a `docker-compose.yml` file:
+   ```yaml
+   version: '3'
+   services:
+     app:
+       build: .
+       ports:
+         - "3000:3000"
+       env_file:
+         - .env.docker
+       depends_on:
+         - chrome
+     chrome:
+       image: browserless/chrome
+       ports:
+         - "1337:3000"
+   ```
+
+2. Run with Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
 ## 🔧 Development
 
 ### Frontend Development
