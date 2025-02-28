@@ -1,6 +1,7 @@
 package scform
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -117,13 +118,17 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	var browser *rod.Browser
 	var err error
 
+	// Set default timeout for all operations
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	if remoteURL != "" {
 		// Add error handling for remote connection
 		if strings.HasPrefix(remoteURL, "ws://") || strings.HasPrefix(remoteURL, "wss://") {
 			debugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
 			ws := NewWebSocket(remoteURL)
 			client := cdp.New().Start(ws)
-			browser = rod.New().Client(client)
+			browser = rod.New().Client(client).Context(ctx)
 			err = browser.Connect()
 			if err != nil {
 				debugLog("Failed to connect browser via WebSocket: %v", err)
@@ -132,7 +137,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 			}
 		} else {
 			debugLog("Connecting to remote browser via direct URL: %s", remoteURL)
-			browser = rod.New().ControlURL(remoteURL).MustConnect()
+			browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to remote browser: %v", err)
@@ -142,19 +147,33 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		// use already installed chrome browser
 		chromePath := os.Getenv("CHROME_PATH")
 
+		// Use headless by default, only use headed mode for debugging
+		useHeadless := os.Getenv("SCFORM_HEADLESS") != "false"
+
 		var l *launcher.Launcher
 		if chromePath == "" {
 			path, _ := launcher.LookPath()
-
-			l = launcher.New().Bin(path).Headless(false)
+			l = launcher.New().Bin(path).Headless(useHeadless)
 		} else {
-			l = launcher.New().Bin(chromePath).Headless(false)
+			l = launcher.New().Bin(chromePath).Headless(useHeadless)
 		}
+
+		// Set browser flags for better performance
+		l = l.Set("disable-gpu", "true").
+			Set("disable-dev-shm-usage", "true").
+			Set("disable-web-security", "true").
+			Set("disable-features", "IsolateOrigins,site-per-process").
+			Set("disable-site-isolation-trials", "true").
+			Set("disable-blink-features", "AutomationControlled").
+			Set("blink-settings", "imagesEnabled=false")
 
 		// Launch and connect to the browser
 		url := l.MustLaunch()
-		browser = rod.New().ControlURL(url).MustConnect().NoDefaultDevice()
+		browser = rod.New().ControlURL(url).Context(ctx).MustConnect().NoDefaultDevice()
 	}
+
+	// Set a default shorter timeout for all browser operations
+	browser = browser.Timeout(30 * time.Second)
 
 	// Send progress update
 	if progressChan != nil {
@@ -172,11 +191,17 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}()
 
-	page := browser.MustPage(scformURL)
+	// Set a shorter timeout for page navigation (15 seconds)
+	page := browser.Timeout(15 * time.Second).MustPage(scformURL)
 
-	page.MustWaitDOMStable()
-	page.MustElement("input[id='MainContent_LoginUser_UserName']").MustInput(username)
-	page.MustElement("input[id='MainContent_LoginUser_Password']").MustInput(password)
+	// Use more targeted wait with a timeout instead of waiting for DOM stable
+	// Wait up to 5 seconds for the username input field
+	usernameInput := page.Timeout(5 * time.Second).MustElement("input[id='MainContent_LoginUser_UserName']")
+	usernameInput.MustInput(username)
+
+	// Wait up to 5 seconds for the password input field
+	passwordInput := page.Timeout(5 * time.Second).MustElement("input[id='MainContent_LoginUser_Password']")
+	passwordInput.MustInput(password)
 
 	// Send progress update
 	if progressChan != nil {
@@ -187,13 +212,16 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}
 
-	page.MustWaitStable()
+	// Use a shorter wait timeout of 5 seconds
+	page.Timeout(5 * time.Second).MustWaitStable()
 
+	// Click the login button using JavaScript
 	page.MustEval(`() => {
 		LoginBt();
 	}`)
 
-	page.MustWaitStable()
+	// Use a shorter wait timeout of 5 seconds
+	page.Timeout(5 * time.Second).MustWaitStable()
 
 	// Send progress update
 	if progressChan != nil {
@@ -204,16 +232,19 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}
 
+	// Navigate to grades page using JavaScript
 	page.MustEval(`() => {
 		GoTo('Eleve/MesNotes.aspx');
 	}`)
 
-	page.MustWaitStable()
+	// Use a shorter wait timeout of 5 seconds
+	page.Timeout(5 * time.Second).MustWaitStable()
 
-	// MainContent_RadioButtonAffichage_1 click
-	page.MustElement("input[id='MainContent_RadioButtonAffichage_1']").MustClick()
+	// Use a more efficient selector with timeout of 5 seconds
+	page.Timeout(5 * time.Second).MustElement("input[id='MainContent_RadioButtonAffichage_1']").MustClick()
 
-	page.MustWaitStable()
+	// Use a shorter wait timeout of 5 seconds
+	page.Timeout(5 * time.Second).MustWaitStable()
 
 	// Send progress update
 	if progressChan != nil {
@@ -224,8 +255,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}
 
-	// Get all course tables
-	courseTables, err := page.Elements("table.AfficheInfoEnMieux")
+	// Get all course tables with a timeout of 10 seconds
+	courseTables, err := page.Timeout(10 * time.Second).Elements("table.AfficheInfoEnMieux")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find course tables: %v", err)
 	}
@@ -244,8 +275,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 			}
 		}
 
-		// Extract course name
-		nameElement, err := table.Element("span[id*='NomCompletLabel']")
+		// Extract course name with a timeout of 5 seconds
+		nameElement, err := table.Timeout(5 * time.Second).Element("span[id*='NomCompletLabel']")
 		if err != nil {
 			debugLog("Failed to find course name element, skipping table")
 			continue
@@ -264,8 +295,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 			Grades: []Grade{},
 		}
 
-		// Find all grade divs within the table
-		gradeDivs, err := table.Elements("div[id='DivNOTE']")
+		// Find all grade divs within the table with a timeout of 5 seconds
+		gradeDivs, err := table.Timeout(5 * time.Second).Elements("div[id='DivNOTE']")
 		if err != nil {
 			debugLog("Failed to find grade divs for course %s: %v", courseName, err)
 			continue
@@ -274,8 +305,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		for _, gradeDiv := range gradeDivs {
 			grade := Grade{}
 
-			// Extract grade value and maximum
-			if valueSpan, err := gradeDiv.Element("span[id*='Label1']"); err == nil {
+			// Extract grade value and maximum with a timeout of 2 seconds
+			if valueSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label1']"); err == nil {
 				if value, err := valueSpan.Text(); err == nil {
 					value = strings.TrimSpace(value)
 					if value != "" {
@@ -285,8 +316,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 				}
 			}
 
-			// Extract coefficient
-			if coeffSpan, err := gradeDiv.Element("span[id*='Label3']"); err == nil {
+			// Extract coefficient with a timeout of 2 seconds
+			if coeffSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label3']"); err == nil {
 				if coeffText, err := coeffSpan.Text(); err == nil {
 					coeffText = strings.TrimSpace(coeffText)
 					coeffText = strings.TrimPrefix(coeffText, "coeff. ")
@@ -294,8 +325,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 				}
 			}
 
-			// Extract title and date
-			if titleSpan, err := gradeDiv.Element("span[id*='Label7']"); err == nil {
+			// Extract title and date with a timeout of 2 seconds
+			if titleSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label7']"); err == nil {
 				if titleText, err := titleSpan.Text(); err == nil {
 					titleText = strings.TrimSpace(titleText)
 					// Use regex to match the pattern: any text followed by "du" and a date
@@ -312,23 +343,23 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 				}
 			}
 
-			// Extract type
-			if typeSpan, err := gradeDiv.Element("span[id*='Label8']"); err == nil {
+			// Extract type with a timeout of 2 seconds
+			if typeSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label8']"); err == nil {
 				if typeText, err := typeSpan.Text(); err == nil {
 					grade.Type = strings.TrimSpace(typeText)
 				}
 			}
 
-			// Extract remarks if present
-			if remarksSpan, err := gradeDiv.Element("span[id*='Label9']"); err == nil {
+			// Extract remarks if present with a timeout of 2 seconds
+			if remarksSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label9']"); err == nil {
 				if remarks, err := remarksSpan.Text(); err == nil {
 					grade.Remarks = strings.TrimSpace(remarks)
 					grade.Remarks = strings.TrimPrefix(grade.Remarks, "Remarque : ")
 				}
 			}
 
-			// Extract observations if present
-			if obsSpan, err := gradeDiv.Element("span[id*='Label10']"); err == nil {
+			// Extract observations if present with a timeout of 2 seconds
+			if obsSpan, err := gradeDiv.Timeout(2 * time.Second).Element("span[id*='Label10']"); err == nil {
 				if obs, err := obsSpan.Text(); err == nil {
 					grade.Observation = strings.TrimSpace(obs)
 					grade.Observation = strings.TrimPrefix(grade.Observation, "Observation : ")
