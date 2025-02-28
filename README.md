@@ -1,5 +1,14 @@
 # SCForm Notes
 
+## Project Purpose
+
+SCForm Notes is a helper application designed to extract and manage grade information from GALIA, a learning management system/ERP used by educational institutions. This tool addresses specific limitations of GALIA, which does not provide:
+
+- A way to download or export grades
+- Calculation of a global GPA (Grade Point Average)
+
+This application allows students to efficiently access, track, and analyze their academic performance data outside of GALIA's native interface.
+
 [Version française](README.fr.md)
 
 A web application built with Go (Fiber) and modern frontend technologies for managing and processing form data. The application uses HTMX for dynamic interactions and Tailwind CSS for styling.
