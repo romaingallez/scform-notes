@@ -94,9 +94,7 @@
             </div>
             <button id="print-button"
                     class="btn btn-secondary hidden"
-                    hx-get="/print"
-                    hx-target="body"
-                    hx-push-url="true">
+                    onclick="openPrintPopup()">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
@@ -225,17 +223,31 @@
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-                setTimeout(() => window.close(), 1000);
             })
             .catch(error => console.error('Error downloading Excel file:', error));
     }
 
-    // Add HTMX redirect handler
-    document.body.addEventListener('htmx:beforeRedirect', function(evt) {
-        if (evt.detail.target.id === 'download-button' || evt.detail.target.id === 'excel-download-button') {
-            setTimeout(function() {
-                window.close();
-            }, 1000); // Give 1 second for the download to start
+    function openPrintPopup() {
+        const width = 900;
+        const height = 800;
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        
+        const popup = window.open(
+            '/print',
+            'PrintWindow',
+            `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+        );
+        
+        if (popup) {
+            popup.focus();
+        } else {
+            alert('Please allow popups for this website to use the print feature.');
         }
+    }
+
+    // Update HTMX redirect handler to only handle necessary cases
+    document.body.addEventListener('htmx:beforeRedirect', function(evt) {
+        // Remove the window.close() behavior as it's not needed
     });
 </script>

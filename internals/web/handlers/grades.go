@@ -207,7 +207,6 @@ func (h *GradeHandler) HandleExport(c *fiber.Ctx) error {
 
 	c.Set("Content-Disposition", "attachment; filename=grades.json")
 	c.Set("Content-Type", "application/json")
-	c.Set("HX-Redirect", "about:blank")
 	return c.SendStream(bytes.NewReader(jsonData))
 }
 
