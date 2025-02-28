@@ -95,7 +95,9 @@
     </style>
 </head>
 <body>
-    <a href="/" class="back-button no-print">Retour</a>
+    <a href="#" 
+       class="back-button no-print" 
+       onclick="window.close(); return false;">Fermer</a>
     <div class="print-container">
         <div class="header">
             <h1>Bulletin de Notes</h1>
