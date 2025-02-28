@@ -1,5 +1,18 @@
 # SCForm Notes
 
+## Objectif du Projet
+
+SCForm Notes est une application d'assistance conçue pour extraire et gérer les informations de notes depuis GALIA, un système de gestion d'apprentissage/ERP utilisé par les établissements d'enseignement. Cet outil répond à des limitations spécifiques de GALIA, qui ne propose pas :
+
+- Un moyen de télécharger ou d'exporter les notes
+- Le calcul d'une moyenne générale (GPA)
+
+Cette application permet aux étudiants d'accéder, de suivre et d'analyser efficacement leurs données de performance académique en dehors de l'interface native de GALIA.
+
+### À propos de GALIA
+
+Le logiciel GALIA est spécialement conçu pour répondre aux besoins des organismes et centres de formation proposant des formations diplômantes ou qualifiantes, que ce soit en formation initiale, en alternance ou continue. C'est un ERP de gestion complet allant de la planification des formations jusqu'au calcul du Bilan Pédagogique et Financier. GALIA propose un portail pédagogique pour les intervenants, élèves, tuteurs et maîtres d'apprentissage permettant de consulter les emplois du temps, les documents administratifs et pédagogiques, les parcours, les détails des cours, le suivi des apprentissages ainsi que les notes et travaux à réaliser.
+
 [English version](README.md)
 
 Une application web construite avec Go (Fiber) et des technologies frontend modernes pour gérer et traiter les données de formulaires. L'application utilise HTMX pour les interactions dynamiques et Tailwind CSS pour le style.
