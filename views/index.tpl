@@ -6,6 +6,7 @@
             <form hx-post="/grades" 
                   hx-target="#grades-container" 
                   hx-indicator="#spinner"
+                  hx-on::after-request="initWebSocket()"
                   class="space-y-4">
                 
                 <div class="form-control w-full">
@@ -49,6 +50,13 @@
                     Obtenir les Notes
                 </button>
             </form>
+
+            <div id="progress-container" class="hidden mt-4">
+                <div class="w-full bg-gray-300 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progress-message" class="text-sm text-gray-600 mt-2 text-center"></p>
+            </div>
 
             <div id="spinner" class="htmx-indicator">
                 <div class="flex justify-center items-center mt-4">
@@ -130,6 +138,51 @@
 </style>
 
 <script>
+    let ws = null;
+
+    function initWebSocket() {
+        if (ws !== null) {
+            ws.close();
+        }
+
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressMessage = document.getElementById('progress-message');
+        progressContainer.classList.remove('hidden');
+        
+        // Create WebSocket connection
+        ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // Update progress bar and message
+            progressBar.style.width = `${data.progress * 100}%`;
+            progressMessage.textContent = data.message;
+            
+            if (data.status === 'complete') {
+                // Reload grades container
+                htmx.ajax('GET', '/search', '#grades-container');
+                // Hide progress after a delay
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                }, 1000);
+                ws.close();
+            }
+        };
+        
+        ws.onclose = function() {
+            console.log('WebSocket connection closed');
+            ws = null;
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            progressMessage.textContent = 'Error: Could not connect to WebSocket';
+            progressMessage.classList.add('text-red-500');
+        };
+    }
+
     document.body.addEventListener('htmx:afterRequest', function(evt) {
         if (evt.detail.target.id === 'grades-container' && evt.detail.successful) {
             document.getElementById('search-container').classList.remove('hidden');

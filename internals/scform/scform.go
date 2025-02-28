@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/launcher"
 )
+
+var debugEnabled bool
 
 // Grade represents a single grade entry
 type Grade struct {
@@ -79,19 +82,63 @@ func (s *Student) CalculateTotalAverage() {
 func init() {
 	// setup logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	// Set debug mode from environment variable
+	debugEnabled = os.Getenv("SCFORM_DEBUG") == "true"
 }
 
-func GetStudentGrades(scformURL, username, password string) (*Student, error) {
+// debugLog logs a message only if debug mode is enabled
+func debugLog(format string, v ...interface{}) {
+	if debugEnabled {
+		log.Printf(format, v...)
+	}
+}
+
+// ProgressUpdate represents a progress update message
+type ProgressUpdate struct {
+	Status   string  `json:"status"`
+	Message  string  `json:"message"`
+	Progress float64 `json:"progress"`
+}
+
+func GetStudentGrades(scformURL, username, password string, progressChan chan<- ProgressUpdate) (*Student, error) {
+	// Send initial progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "connecting",
+			Message:  "Connecting to browser...",
+			Progress: 0.1,
+		}
+	}
 
 	remoteURL := os.Getenv("SCFORM_REMOTE_URL")
+	debugLog("remoteURL: %s", remoteURL)
 
 	var browser *rod.Browser
+	var err error
 
 	if remoteURL != "" {
-		browser = rod.New().ControlURL(remoteURL).MustConnect().NoDefaultDevice()
-
+		// Add error handling for remote connection
+		if strings.HasPrefix(remoteURL, "ws://") || strings.HasPrefix(remoteURL, "wss://") {
+			debugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
+			ws := NewWebSocket(remoteURL)
+			client := cdp.New().Start(ws)
+			browser = rod.New().Client(client)
+			err = browser.Connect()
+			if err != nil {
+				debugLog("Failed to connect browser via WebSocket: %v", err)
+			} else {
+				debugLog("Successfully connected browser via WebSocket")
+			}
+		} else {
+			debugLog("Connecting to remote browser via direct URL: %s", remoteURL)
+			browser = rod.New().ControlURL(remoteURL).MustConnect()
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to remote browser: %v", err)
+		}
+		browser = browser.NoDefaultDevice()
 	} else {
-
 		// use already installed chrome browser
 		chromePath := os.Getenv("CHROME_PATH")
 
@@ -109,13 +156,36 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 		browser = rod.New().ControlURL(url).MustConnect().NoDefaultDevice()
 	}
 
-	defer browser.Close()
+	// Send progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "navigating",
+			Message:  "Navigating to login page...",
+			Progress: 0.2,
+		}
+	}
+
+	// Add error handling for browser operations
+	defer func() {
+		if browser != nil {
+			browser.Close()
+		}
+	}()
 
 	page := browser.MustPage(scformURL)
 
 	page.MustWaitDOMStable()
 	page.MustElement("input[id='MainContent_LoginUser_UserName']").MustInput(username)
 	page.MustElement("input[id='MainContent_LoginUser_Password']").MustInput(password)
+
+	// Send progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "logging_in",
+			Message:  "Logging in...",
+			Progress: 0.3,
+		}
+	}
 
 	page.MustWaitStable()
 
@@ -124,6 +194,15 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 	}`)
 
 	page.MustWaitStable()
+
+	// Send progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "navigating_grades",
+			Message:  "Navigating to grades page...",
+			Progress: 0.4,
+		}
+	}
 
 	page.MustEval(`() => {
 		GoTo('Eleve/MesNotes.aspx');
@@ -136,6 +215,15 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 
 	page.MustWaitStable()
 
+	// Send progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "fetching_grades",
+			Message:  "Fetching grades...",
+			Progress: 0.5,
+		}
+	}
+
 	// Get all course tables
 	courseTables, err := page.Elements("table.AfficheInfoEnMieux")
 	if err != nil {
@@ -143,18 +231,29 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 	}
 
 	var courses []Course
+	totalTables := len(courseTables)
 
-	for _, table := range courseTables {
+	for i, table := range courseTables {
+		// Send progress update for each course
+		if progressChan != nil {
+			progress := 0.5 + (float64(i) / float64(totalTables) * 0.4)
+			progressChan <- ProgressUpdate{
+				Status:   "processing_course",
+				Message:  fmt.Sprintf("Processing course %d of %d...", i+1, totalTables),
+				Progress: progress,
+			}
+		}
+
 		// Extract course name
 		nameElement, err := table.Element("span[id*='NomCompletLabel']")
 		if err != nil {
-			log.Println("Failed to find course name element, skipping table")
+			debugLog("Failed to find course name element, skipping table")
 			continue
 		}
 
 		courseName, err := nameElement.Text()
 		if err != nil {
-			log.Println("Failed to get course name text, skipping table")
+			debugLog("Failed to get course name text, skipping table")
 			continue
 		}
 		courseName = strings.TrimSpace(courseName)
@@ -168,7 +267,7 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 		// Find all grade divs within the table
 		gradeDivs, err := table.Elements("div[id='DivNOTE']")
 		if err != nil {
-			log.Printf("Failed to find grade divs for course %s: %v\n", courseName, err)
+			debugLog("Failed to find grade divs for course %s: %v", courseName, err)
 			continue
 		}
 
@@ -248,12 +347,30 @@ func GetStudentGrades(scformURL, username, password string) (*Student, error) {
 		}
 	}
 
+	// Send progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "calculating",
+			Message:  "Calculating averages...",
+			Progress: 0.9,
+		}
+	}
+
 	// Create a student and calculate averages
 	student := &Student{
 		Name:   username,
 		Grades: courses,
 	}
 	student.CalculateTotalAverage()
+
+	// Send completion progress update
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{
+			Status:   "complete",
+			Message:  "Done!",
+			Progress: 1.0,
+		}
+	}
 
 	return student, nil
 }

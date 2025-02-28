@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strings"
@@ -65,23 +66,38 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 		scformURL = os.Getenv("SCFORM_URL")
 	}
 
-	// Get grades
-	student, err := scform.GetStudentGrades(scformURL, username, password)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
+	// Create a channel for progress updates
+	progressChan := make(chan scform.ProgressUpdate)
 
-	// Store student data
-	h.currentStudent = student
+	// Start a goroutine to get grades and broadcast progress
+	go func() {
+		defer close(progressChan)
 
-	// Return partial HTML for the grades table
-	return c.Render("partials/grades", fiber.Map{
-		"Student": student,
-		"SortBy":  "",
-		"SortDir": "",
-	}, "")
+		// Start a goroutine to handle progress updates
+		go func() {
+			for progress := range progressChan {
+				BroadcastProgress(progress)
+			}
+		}()
+
+		student, err := scform.GetStudentGrades(scformURL, username, password, progressChan)
+		if err != nil {
+			log.Printf("Error getting grades: %v", err)
+			BroadcastProgress(map[string]interface{}{
+				"status":   "error",
+				"message":  "Error: " + err.Error(),
+				"progress": 1.0,
+			})
+			return
+		}
+		h.currentStudent = student
+	}()
+
+	// Return success response immediately
+	return c.JSON(fiber.Map{
+		"status":  "processing",
+		"message": "Grade retrieval started",
+	})
 }
 
 // HandleSearch handles the search and sort functionality
