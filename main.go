@@ -25,12 +25,12 @@ func init() {
 		}
 	}
 
-	if os.Getenv("SCFORM_REMOTE_URL") != "" {
-		err := utils.TestChromeDevWS(os.Getenv("SCFORM_REMOTE_URL"))
-		if err != nil {
-			log.Fatal("Error testing Chrome Dev WS:", err)
-		}
-	}
+	// if os.Getenv("SCFORM_REMOTE_URL") != "" {
+	// 	err := utils.TestChromeDevWS(os.Getenv("SCFORM_REMOTE_URL"))
+	// 	if err != nil {
+	// 		log.Fatal("Error testing Chrome Dev WS:", err)
+	// 	}
+	// }
 
 }
 
