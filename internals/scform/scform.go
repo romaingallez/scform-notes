@@ -194,13 +194,16 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	// Set a shorter timeout for page navigation (15 seconds)
 	page := browser.Timeout(15 * time.Second).MustPage(scformURL)
 
-	// Use more targeted wait with a timeout instead of waiting for DOM stable
-	// Wait up to 5 seconds for the username input field
-	usernameInput := page.Timeout(5 * time.Second).MustElement("input[id='MainContent_LoginUser_UserName']")
-	usernameInput.MustInput(username)
+	// Wait for the page to load and Angular to initialize
+	page.Timeout(10 * time.Second).MustWaitStable()
 
-	// Wait up to 5 seconds for the password input field
-	passwordInput := page.Timeout(5 * time.Second).MustElement("input[id='MainContent_LoginUser_Password']")
+	// Use more targeted wait with a timeout instead of waiting for DOM stable
+	// Wait up to 10 seconds for the email input field (new Angular structure)
+	emailInput := page.Timeout(10 * time.Second).MustElement("input[id='email']")
+	emailInput.MustInput(username)
+
+	// Wait up to 5 seconds for the password input field (new Angular structure)
+	passwordInput := page.Timeout(5 * time.Second).MustElement("input[id='password']")
 	passwordInput.MustInput(password)
 
 	// Send progress update
@@ -215,13 +218,26 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	// Use a shorter wait timeout of 5 seconds
 	page.Timeout(5 * time.Second).MustWaitStable()
 
-	// Click the login button using JavaScript
-	page.MustEval(`() => {
-		LoginBt();
-	}`)
-
-	// Use a shorter wait timeout of 5 seconds
+	// Click the login button (new Angular structure)
+	loginButton := page.Timeout(5 * time.Second).MustElement("button[type='submit']")
+	loginButton.MustClick()
 	page.Timeout(5 * time.Second).MustWaitStable()
+
+	// list open tabs
+	tabs := browser.MustPages()
+	log.Printf("Number of open tabs: %d", len(tabs))
+
+	for _, tab := range tabs {
+		log.Printf("Tab: %s", tab.MustInfo().URL)
+		// if tab url contain Stagiaire.aspx, switch to it
+		if strings.Contains(tab.MustInfo().URL, "Stagiaire.aspx") {
+			page = tab
+			break
+		}
+	}
+
+	// Wait for navigation after login
+	page.Timeout(10 * time.Second).MustWaitStable()
 
 	// Send progress update
 	if progressChan != nil {
@@ -232,19 +248,77 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}
 
-	// Navigate to grades page using JavaScript
-	page.MustEval(`() => {
-		GoTo('Eleve/MesNotes.aspx');
+	// Wait for post-login page to load, then try to navigate to grades
+	// First, try to find if we're already on a dashboard or need to navigate
+	page.Timeout(5 * time.Second).MustWaitStable()
+
+	// Try to navigate to grades page - this might be different in the new interface
+	// We'll first try the old approach, but with error handling
+	_, err = page.Eval(`() => {
+		console.log('Navigating to grades page...');
+		if (typeof GoTo === 'function') {
+			GoTo('Eleve/MesNotes.aspx');
+		} else {
+			console.log('GoTo function not found');
+		}
 	}`)
 
+	if err != nil {
+		debugLog("Failed to navigate using JavaScript: %v", err)
+		// Try to find a grades navigation link manually
+		var gradesLink *rod.Element
+		// Try various selectors for grades navigation
+		selectors := []string{
+			"a[href*='notes']",
+			"a[href*='grades']",
+			"[routerlink*='notes']",
+			"[routerlink*='grades']",
+			"a:contains('Notes')",
+			"a:contains('Grades')",
+			"button:contains('Notes')",
+			"button:contains('Grades')",
+		}
+
+		for _, selector := range selectors {
+			gradesLink, err = page.Timeout(2 * time.Second).Element(selector)
+			if err == nil {
+				debugLog("Found grades link with selector: %s", selector)
+				gradesLink.MustClick()
+				break
+			}
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to navigate to grades page: could not find navigation elements")
+		}
+	}
+
 	// Use a shorter wait timeout of 5 seconds
 	page.Timeout(5 * time.Second).MustWaitStable()
 
-	// Use a more efficient selector with timeout of 5 seconds
-	page.Timeout(5 * time.Second).MustElement("input[id='MainContent_RadioButtonAffichage_1']").MustClick()
+	// Try to find the radio button for grade display (this might also be different)
+	// Use error handling since the interface might have changed
+	radioButton, err := page.Timeout(5 * time.Second).Element("input[id='MainContent_RadioButtonAffichage_1']")
+	if err == nil {
+		radioButton.MustClick()
+		page.Timeout(5 * time.Second).MustWaitStable()
+	} else {
+		debugLog("Radio button not found, trying alternative selectors")
+		// Try alternative selectors for the display mode
+		altSelectors := []string{
+			"input[type='radio'][value='1']",
+			"input[name*='affichage']",
+			"input[name*='display']",
+		}
 
-	// Use a shorter wait timeout of 5 seconds
-	page.Timeout(5 * time.Second).MustWaitStable()
+		for _, selector := range altSelectors {
+			if altRadio, altErr := page.Timeout(2 * time.Second).Element(selector); altErr == nil {
+				altRadio.MustClick()
+				page.Timeout(3 * time.Second).MustWaitStable()
+				break
+			}
+		}
+	}
 
 	// Send progress update
 	if progressChan != nil {
