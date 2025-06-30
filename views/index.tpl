@@ -137,56 +137,183 @@
 
 <script>
     let ws = null;
+    let wsReconnectAttempts = 0;
+    let wsMaxReconnectAttempts = 5;
+    let wsReconnectDelay = 1000; // Start with 1 second
+    let wsReconnectTimer = null;
+    let wsIsManualClose = false;
+    let wsConnectionState = 'disconnected'; // 'connecting', 'connected', 'disconnected', 'error'
+
+    function getWebSocketUrl() {
+        // Determine protocol: use WSS for HTTPS, WS for HTTP
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.host}/ws`;
+    }
+
+    function updateConnectionStatus(status, message) {
+        wsConnectionState = status;
+        const progressMessage = document.getElementById('progress-message');
+        if (progressMessage) {
+            progressMessage.textContent = message;
+            progressMessage.className = 'text-sm mt-2 text-center';
+            
+            switch (status) {
+                case 'connecting':
+                    progressMessage.classList.add('text-blue-600');
+                    break;
+                case 'connected':
+                    progressMessage.classList.add('text-green-600');
+                    break;
+                case 'error':
+                    progressMessage.classList.add('text-red-500');
+                    break;
+                case 'disconnected':
+                    progressMessage.classList.add('text-gray-600');
+                    break;
+            }
+        }
+        console.log(`WebSocket status: ${status} - ${message}`);
+    }
+
+    function connectWebSocket() {
+        if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+            return;
+        }
+
+        const webSocketUrl = getWebSocketUrl();
+        updateConnectionStatus('connecting', `Connecting to server... (attempt ${wsReconnectAttempts + 1})`);
+        
+        try {
+            ws = new WebSocket(webSocketUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connection established');
+                wsReconnectAttempts = 0;
+                wsReconnectDelay = 1000;
+                updateConnectionStatus('connected', 'Connected to server');
+                
+                // Clear any existing reconnect timer
+                if (wsReconnectTimer) {
+                    clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = null;
+                }
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    const progressBar = document.getElementById('progress-bar');
+                    const progressMessage = document.getElementById('progress-message');
+                    
+                    // Update progress bar and message
+                    if (progressBar) {
+                        progressBar.style.width = `${data.progress * 100}%`;
+                    }
+                    if (progressMessage) {
+                        progressMessage.textContent = data.message;
+                        progressMessage.className = 'text-sm text-gray-600 mt-2 text-center';
+                    }
+                    
+                    if (data.status === 'complete') {
+                        // Reload grades container
+                        htmx.ajax('GET', '/search', '#grades-container');
+                        // Hide progress after a delay
+                        setTimeout(() => {
+                            const progressContainer = document.getElementById('progress-container');
+                            if (progressContainer) {
+                                progressContainer.classList.add('hidden');
+                            }
+                        }, 1000);
+                        
+                        // Close connection gracefully after completion
+                        wsIsManualClose = true;
+                        if (ws) {
+                            ws.close();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                console.log('WebSocket connection closed', event.code, event.reason);
+                ws = null;
+                
+                if (!wsIsManualClose && wsReconnectAttempts < wsMaxReconnectAttempts) {
+                    updateConnectionStatus('disconnected', `Connection lost. Reconnecting in ${wsReconnectDelay / 1000}s...`);
+                    scheduleReconnect();
+                } else if (!wsIsManualClose) {
+                    updateConnectionStatus('error', 'Connection failed. Please try again.');
+                } else {
+                    updateConnectionStatus('disconnected', 'Connection closed');
+                    wsIsManualClose = false;
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus('error', 'Connection error occurred');
+            };
+            
+        } catch (error) {
+            console.error('Error creating WebSocket:', error);
+            updateConnectionStatus('error', 'Failed to create connection');
+            if (wsReconnectAttempts < wsMaxReconnectAttempts) {
+                scheduleReconnect();
+            }
+        }
+    }
+
+    function scheduleReconnect() {
+        if (wsReconnectTimer) {
+            clearTimeout(wsReconnectTimer);
+        }
+        
+        wsReconnectTimer = setTimeout(() => {
+            wsReconnectAttempts++;
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000); // Cap at 30 seconds
+            connectWebSocket();
+        }, wsReconnectDelay);
+    }
 
     function initWebSocket() {
+        // Close existing connection if any
         if (ws !== null) {
+            wsIsManualClose = true;
             ws.close();
         }
 
+        // Reset reconnection state
+        wsReconnectAttempts = 0;
+        wsReconnectDelay = 1000;
+        wsIsManualClose = false;
+        
+        // Clear any existing reconnect timer
+        if (wsReconnectTimer) {
+            clearTimeout(wsReconnectTimer);
+            wsReconnectTimer = null;
+        }
+
         const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
-        const progressMessage = document.getElementById('progress-message');
-        progressContainer.classList.remove('hidden');
+        if (progressContainer) {
+            progressContainer.classList.remove('hidden');
+        }
 
-        // if we are on http, use ws, if we are on https, use wss   
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-
-        const web_socket_url = `${protocol}//${window.location.host}/ws`;
-
-        console.log(web_socket_url);
-
-        // Create WebSocket connection
-        ws = new WebSocket(web_socket_url);
-        
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            
-            // Update progress bar and message
-            progressBar.style.width = `${data.progress * 100}%`;
-            progressMessage.textContent = data.message;
-            
-            if (data.status === 'complete') {
-                // Reload grades container
-                htmx.ajax('GET', '/search', '#grades-container');
-                // Hide progress after a delay
-                setTimeout(() => {
-                    progressContainer.classList.add('hidden');
-                }, 1000);
-                ws.close();
-            }
-        };
-        
-        ws.onclose = function() {
-            console.log('WebSocket connection closed');
-            ws = null;
-        };
-        
-        ws.onerror = function(error) {
-            console.error('WebSocket error:', error);
-            progressMessage.textContent = 'Error: Could not connect to WebSocket';
-            progressMessage.classList.add('text-red-500');
-        };
+        // Start connection
+        connectWebSocket();
     }
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        wsIsManualClose = true;
+        if (wsReconnectTimer) {
+            clearTimeout(wsReconnectTimer);
+        }
+        if (ws) {
+            ws.close();
+        }
+    });
 
     document.body.addEventListener('htmx:afterRequest', function(evt) {
         if (evt.detail.target.id === 'grades-container' && evt.detail.successful) {
