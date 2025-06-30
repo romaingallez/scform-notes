@@ -30,6 +30,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// API routes
 	app.Get("/", gradeHandler.HandleIndex)
+	app.Get("/about", gradeHandler.HandleAbout)
 	app.Post("/grades", gradeHandler.HandleGrades)
 	app.Get("/search", gradeHandler.HandleSearch)
 	app.Get("/print", gradeHandler.HandlePrint)
