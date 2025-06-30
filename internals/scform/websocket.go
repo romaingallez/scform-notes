@@ -2,6 +2,8 @@ package scform
 
 import (
 	"context"
+	"errors"
+	"log"
 	"net"
 
 	"github.com/gobwas/ws"
@@ -15,22 +17,25 @@ type WebSocket struct {
 
 // NewWebSocket creates a new WebSocket connection
 func NewWebSocket(u string) *WebSocket {
-	debugLog("Attempting to establish WebSocket connection to: %s", u)
+	log.Printf("Attempting to establish WebSocket connection to: %s", u)
 	conn, _, _, err := ws.Dial(context.Background(), u)
 	if err != nil {
-		debugLog("WebSocket connection failed: %v", err)
+		DebugLog("WebSocket connection failed: %v", err)
 		return nil
 	}
-	debugLog("WebSocket connection established successfully")
+	DebugLog("WebSocket connection established successfully")
 	return &WebSocket{conn}
 }
 
 // Send sends data through the WebSocket connection
 func (w *WebSocket) Send(b []byte) error {
+	if w == nil || w.conn == nil {
+		return errors.New("websocket connection is not established")
+	}
 	// debugLog("Sending WebSocket message, length: %d bytes", len(b))
 	err := wsutil.WriteClientText(w.conn, b)
 	if err != nil {
-		debugLog("Error sending WebSocket message: %v", err)
+		DebugLog("Error sending WebSocket message: %v", err)
 		return err
 	}
 	// debugLog("WebSocket message sent successfully")
@@ -39,12 +44,23 @@ func (w *WebSocket) Send(b []byte) error {
 
 // Read reads data from the WebSocket connection
 func (w *WebSocket) Read() ([]byte, error) {
+	if w == nil || w.conn == nil {
+		return nil, errors.New("websocket connection is not established")
+	}
 	// debugLog("Reading from WebSocket connection...")
 	data, err := wsutil.ReadServerText(w.conn)
 	if err != nil {
-		debugLog("Error reading from WebSocket: %v", err)
+		DebugLog("Error reading from WebSocket: %v", err)
 		return nil, err
 	}
 	// debugLog("Received WebSocket message, length: %d bytes", len(data))
 	return data, nil
+}
+
+// Close closes the WebSocket connection
+func (w *WebSocket) Close() error {
+	if w == nil || w.conn == nil {
+		return nil
+	}
+	return w.conn.Close()
 }

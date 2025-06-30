@@ -86,10 +86,13 @@ func init() {
 
 	// Set debug mode from environment variable
 	debugEnabled = os.Getenv("SCFORM_DEBUG") == "true"
+	if debugEnabled {
+		log.Println("Debug mode enabled")
+	}
 }
 
-// debugLog logs a message only if debug mode is enabled
-func debugLog(format string, v ...interface{}) {
+// DebugLog logs a message only if debug mode is enabled
+func DebugLog(format string, v ...interface{}) {
 	if debugEnabled {
 		log.Printf(format, v...)
 	}
@@ -113,7 +116,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	}
 
 	remoteURL := os.Getenv("SCFORM_REMOTE_URL")
-	debugLog("remoteURL: %s", remoteURL)
+	DebugLog("remoteURL: %s", remoteURL)
 
 	var browser *rod.Browser
 	var err error
@@ -125,18 +128,24 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	if remoteURL != "" {
 		// Add error handling for remote connection
 		if strings.HasPrefix(remoteURL, "ws://") || strings.HasPrefix(remoteURL, "wss://") {
-			debugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
+			DebugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
 			ws := NewWebSocket(remoteURL)
+			if ws == nil {
+				return nil, fmt.Errorf("failed to establish WebSocket connection to %s", remoteURL)
+			}
 			client := cdp.New().Start(ws)
 			browser = rod.New().Client(client).Context(ctx)
 			err = browser.Connect()
 			if err != nil {
-				debugLog("Failed to connect browser via WebSocket: %v", err)
+				DebugLog("Failed to connect browser via WebSocket: %v", err)
+				// Make sure to close the WebSocket connection if browser connection fails
+				ws.Close()
+				return nil, fmt.Errorf("failed to connect browser via WebSocket: %v", err)
 			} else {
-				debugLog("Successfully connected browser via WebSocket")
+				DebugLog("Successfully connected browser via WebSocket")
 			}
 		} else {
-			debugLog("Connecting to remote browser via direct URL: %s", remoteURL)
+			DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
 			browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
 		}
 		if err != nil {
@@ -264,7 +273,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	}`)
 
 	if err != nil {
-		debugLog("Failed to navigate using JavaScript: %v", err)
+		DebugLog("Failed to navigate using JavaScript: %v", err)
 		// Try to find a grades navigation link manually
 		var gradesLink *rod.Element
 		// Try various selectors for grades navigation
@@ -282,7 +291,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		for _, selector := range selectors {
 			gradesLink, err = page.Timeout(2 * time.Second).Element(selector)
 			if err == nil {
-				debugLog("Found grades link with selector: %s", selector)
+				DebugLog("Found grades link with selector: %s", selector)
 				gradesLink.MustClick()
 				break
 			}
@@ -303,7 +312,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		radioButton.MustClick()
 		page.Timeout(5 * time.Second).MustWaitStable()
 	} else {
-		debugLog("Radio button not found, trying alternative selectors")
+		DebugLog("Radio button not found, trying alternative selectors")
 		// Try alternative selectors for the display mode
 		altSelectors := []string{
 			"input[type='radio'][value='1']",
@@ -352,13 +361,13 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		// Extract course name with a timeout of 5 seconds
 		nameElement, err := table.Timeout(5 * time.Second).Element("span[id*='NomCompletLabel']")
 		if err != nil {
-			debugLog("Failed to find course name element, skipping table")
+			DebugLog("Failed to find course name element, skipping table")
 			continue
 		}
 
 		courseName, err := nameElement.Text()
 		if err != nil {
-			debugLog("Failed to get course name text, skipping table")
+			DebugLog("Failed to get course name text, skipping table")
 			continue
 		}
 		courseName = strings.TrimSpace(courseName)
@@ -372,7 +381,7 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		// Find all grade divs within the table with a timeout of 5 seconds
 		gradeDivs, err := table.Timeout(5 * time.Second).Elements("div[id='DivNOTE']")
 		if err != nil {
-			debugLog("Failed to find grade divs for course %s: %v", courseName, err)
+			DebugLog("Failed to find grade divs for course %s: %v", courseName, err)
 			continue
 		}
 
