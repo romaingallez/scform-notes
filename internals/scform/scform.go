@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/launcher"
 )
 
@@ -126,31 +125,35 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	defer cancel()
 
 	if remoteURL != "" {
+		log.Printf("remoteURL: %s", remoteURL)
 		// Add error handling for remote connection
-		if strings.HasPrefix(remoteURL, "ws://") || strings.HasPrefix(remoteURL, "wss://") {
-			DebugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
-			ws := NewWebSocket(remoteURL)
-			if ws == nil {
-				return nil, fmt.Errorf("failed to establish WebSocket connection to %s", remoteURL)
-			}
-			client := cdp.New().Start(ws)
-			browser = rod.New().Client(client).Context(ctx)
-			err = browser.Connect()
-			if err != nil {
-				DebugLog("Failed to connect browser via WebSocket: %v", err)
-				// Make sure to close the WebSocket connection if browser connection fails
-				ws.Close()
-				return nil, fmt.Errorf("failed to connect browser via WebSocket: %v", err)
-			} else {
-				DebugLog("Successfully connected browser via WebSocket")
-			}
-		} else {
-			DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
-			browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to remote browser: %v", err)
-		}
+		// if strings.HasPrefix(remoteURL, "ws://") || strings.HasPrefix(remoteURL, "wss://") {
+		// 	DebugLog("Connecting to remote browser via WebSocket at: %s", remoteURL)
+		// 	ws := NewWebSocket(remoteURL)
+		// 	if ws == nil {
+		// 		return nil, fmt.Errorf("failed to establish WebSocket connection to %s", remoteURL)
+		// 	}
+		// 	client := cdp.New().Start(ws)
+		// 	browser = rod.New().Client(client).Context(ctx)
+		// 	err = browser.Connect()
+		// 	if err != nil {
+		// 		DebugLog("Failed to connect browser via WebSocket: %v", err)
+		// 		// Make sure to close the WebSocket connection if browser connection fails
+		// 		ws.Close()
+		// 		return nil, fmt.Errorf("failed to connect browser via WebSocket: %v", err)
+		// 	} else {
+		// 		DebugLog("Successfully connected browser via WebSocket")
+		// 	}
+		// } else {
+		// 	DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
+		// 	browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
+		// }
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to connect to remote browser: %v", err)
+		// }
+		DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
+		browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
+		browser.MustIgnoreCertErrors(true)
 		browser = browser.NoDefaultDevice()
 	} else {
 		// use already installed chrome browser
