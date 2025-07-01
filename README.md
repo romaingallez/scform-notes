@@ -79,9 +79,9 @@ The application will be available at `http://localhost:3000`
 
 You can also run the application using Docker:
 
-1. Build the Docker image:
+1. Pull the Docker image:
    ```bash
-   docker build -t scform-notes .
+   docker pull ghcr.io/romaingallez/scform-notes:latest
    ```
 
 2. Create a `.env.docker` file from the example:
@@ -98,7 +98,7 @@ You can also run the application using Docker:
 
 4. Run the application container:
    ```bash
-   docker run -d -p 3000:3000 --rm --env-file .env.docker --name scform-notes scform-notes
+   docker run -d -p 3000:3000 --rm --env-file .env.docker --name scform-notes ghcr.io/romaingallez/scform-notes:latest
    ```
 
 5. Access the application at `http://localhost:3000`
@@ -109,10 +109,9 @@ You can also use Docker Compose to run both containers:
 
 1. Create a `docker-compose.yml` file:
    ```yaml
-   version: '3'
    services:
      app:
-       build: .
+       image: ghcr.io/romaingallez/scform-notes:latest
        ports:
          - "3000:3000"
        env_file:

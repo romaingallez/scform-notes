@@ -83,9 +83,9 @@ L'application sera disponible à l'adresse `http://localhost:3000`
 
 Vous pouvez également exécuter l'application avec Docker :
 
-1. Construire l'image Docker :
+1. Télécharger l'image Docker :
    ```bash
-   docker build -t scform-notes .
+   docker pull ghcr.io/romaingallez/scform-notes:latest
    ```
 
 2. Créer un fichier `.env.docker` à partir de l'exemple :
@@ -102,7 +102,7 @@ Vous pouvez également exécuter l'application avec Docker :
 
 4. Exécuter le conteneur de l'application :
    ```bash
-   docker run -d -p 3000:3000 --rm --env-file .env.docker --name scform-notes scform-notes
+   docker run -d -p 3000:3000 --rm --env-file .env.docker --name scform-notes ghcr.io/romaingallez/scform-notes:latest
    ```
 
 5. Accéder à l'application à l'adresse `http://localhost:3000`
@@ -115,7 +115,7 @@ Vous pouvez également utiliser Docker Compose pour exécuter les deux conteneur
    ```yaml
    services:
      app:
-       build: .
+       image: ghcr.io/romaingallez/scform-notes:latest
        ports:
          - "3000:3000"
        env_file:
