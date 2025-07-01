@@ -1,8 +1,8 @@
 <footer class="footer footer-center p-10 bg-base-200 text-base-content rounded">
   <div class="grid grid-flow-col gap-4">
-    <a class="link link-hover">À propos</a> 
-    <a class="link link-hover">Contact</a> 
-    <a class="link link-hover">Aide</a>
+    <a class="link link-hover" href="/about">À propos</a> 
+    <a class="link link-hover" href="https://discord.com/channels/1135854941102145596/1389406001890984036" target="_blank" rel="noopener noreferrer">Aide (Discord)</a> 
+    <a class="link link-hover" href="https://github.com/romaingallez/scform-notes/issues" target="_blank" rel="noopener noreferrer">Issues</a>
   </div> 
   <div>
     <div class="grid grid-flow-col gap-4">

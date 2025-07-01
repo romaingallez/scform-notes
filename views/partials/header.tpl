@@ -19,7 +19,4 @@
       <li><a href="/about">À propos</a></li>
     </ul>
   </div>
-  <div class="navbar-end">
-    <a class="btn btn-primary">Se connecter</a>
-  </div>
 </div>
