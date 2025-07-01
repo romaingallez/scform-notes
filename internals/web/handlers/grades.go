@@ -74,18 +74,6 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 	go func() {
 		defer close(progressChan)
 
-		// Add panic recovery
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Panic in grade retrieval goroutine: %v", r)
-				BroadcastProgress(map[string]interface{}{
-					"status":   "error",
-					"message":  fmt.Sprintf("Panic occurred: %v", r),
-					"progress": 1.0,
-				})
-			}
-		}()
-
 		// Start a goroutine to handle progress updates
 		go func() {
 			for progress := range progressChan {
@@ -93,17 +81,75 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 			}
 		}()
 
-		student, err := scform.GetStudentGrades(scformURL, username, password, progressChan)
-		if err != nil {
-			log.Printf("Error getting grades: %v", err)
+		// Retry logic with maximum 3 attempts
+		maxRetries := 3
+		var student *scform.Student
+		var err error
+
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			func() {
+				// Add panic recovery for each attempt
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("Panic in grade retrieval goroutine (attempt %d/%d): %v", attempt, maxRetries, r)
+
+						if attempt < maxRetries {
+							log.Printf("Retrying in 2 seconds... (attempt %d/%d)", attempt+1, maxRetries)
+							BroadcastProgress(map[string]interface{}{
+								"status":   "retrying",
+								"message":  fmt.Sprintf("Attempt %d failed, retrying... (Error: %v)", attempt, r),
+								"progress": float64(attempt) / float64(maxRetries),
+							})
+							time.Sleep(2 * time.Second)
+						} else {
+							BroadcastProgress(map[string]interface{}{
+								"status":   "error",
+								"message":  fmt.Sprintf("All %d attempts failed. Last error: %v", maxRetries, r),
+								"progress": 1.0,
+							})
+						}
+					}
+				}()
+
+				student, err = scform.GetStudentGrades(scformURL, username, password, progressChan)
+			}()
+
+			// If we got a student successfully, break out of retry loop
+			if student != nil && err == nil {
+				log.Printf("Successfully retrieved grades on attempt %d", attempt)
+				break
+			}
+
+			// If this is not the last attempt, log and retry
+			if attempt < maxRetries {
+				log.Printf("Error getting grades (attempt %d/%d): %v", attempt, maxRetries, err)
+				log.Printf("Retrying in 2 seconds... (attempt %d/%d)", attempt+1, maxRetries)
+				BroadcastProgress(map[string]interface{}{
+					"status":   "retrying",
+					"message":  fmt.Sprintf("Attempt %d failed, retrying... (Error: %v)", attempt, err),
+					"progress": float64(attempt) / float64(maxRetries),
+				})
+				time.Sleep(2 * time.Second)
+			}
+		}
+
+		// Check final result
+		if err != nil || student == nil {
+			log.Printf("All %d attempts failed. Final error: %v", maxRetries, err)
 			BroadcastProgress(map[string]interface{}{
 				"status":   "error",
-				"message":  "Error: " + err.Error(),
+				"message":  fmt.Sprintf("All %d attempts failed. Final error: %v", maxRetries, err),
 				"progress": 1.0,
 			})
 			return
 		}
+
 		h.currentStudent = student
+		BroadcastProgress(map[string]interface{}{
+			"status":   "success",
+			"message":  "Grades retrieved successfully",
+			"progress": 1.0,
+		})
 	}()
 
 	// Return success response immediately
@@ -135,49 +181,46 @@ func (h *GradeHandler) HandleSearch(c *fiber.Ctx) error {
 	// Filter courses
 	for _, course := range h.currentStudent.Grades {
 		if query == "" || strings.Contains(strings.ToLower(course.Name), query) {
-			filteredStudent.Grades = append(filteredStudent.Grades, course)
+			// Create a copy of the course
+			filteredCourse := scform.Course{
+				Name:    course.Name,
+				Average: course.Average,
+				Grades:  []scform.Grade{},
+			}
+
+			// Add all grades for this course (no filtering at grade level for now)
+			filteredCourse.Grades = append(filteredCourse.Grades, course.Grades...)
+			filteredStudent.Grades = append(filteredStudent.Grades, filteredCourse)
 		}
 	}
 
-	// Sort grades within each course if requested
-	for i := range filteredStudent.Grades {
-		if sortBy != "" {
-			sort.Slice(filteredStudent.Grades[i].Grades, func(a, b int) bool {
-				gradeA := filteredStudent.Grades[i].Grades[a]
-				gradeB := filteredStudent.Grades[i].Grades[b]
+	// Sort courses if requested
+	if sortBy != "" {
+		sort.Slice(filteredStudent.Grades, func(a, b int) bool {
+			courseA := filteredStudent.Grades[a]
+			courseB := filteredStudent.Grades[b]
 
-				isAsc := sortDir != "desc"
+			isAsc := sortDir != "desc"
 
-				switch sortBy {
-				case "title":
-					if isAsc {
-						return strings.ToLower(gradeA.Title) < strings.ToLower(gradeB.Title)
-					}
-					return strings.ToLower(gradeA.Title) > strings.ToLower(gradeB.Title)
-				case "grade":
-					if isAsc {
-						return gradeA.Value < gradeB.Value
-					}
-					return gradeA.Value > gradeB.Value
-				case "coef":
-					if isAsc {
-						return gradeA.Coefficient < gradeB.Coefficient
-					}
-					return gradeA.Coefficient > gradeB.Coefficient
-				case "date":
-					if isAsc {
-						return gradeA.Date.Before(gradeB.Date)
-					}
-					return gradeA.Date.After(gradeB.Date)
-				case "type":
-					if isAsc {
-						return strings.ToLower(gradeA.Type) < strings.ToLower(gradeB.Type)
-					}
-					return strings.ToLower(gradeA.Type) > strings.ToLower(gradeB.Type)
+			switch sortBy {
+			case "course":
+				if isAsc {
+					return strings.ToLower(courseA.Name) < strings.ToLower(courseB.Name)
 				}
-				return false
-			})
-		}
+				return strings.ToLower(courseA.Name) > strings.ToLower(courseB.Name)
+			case "average":
+				if isAsc {
+					return courseA.Average < courseB.Average
+				}
+				return courseA.Average > courseB.Average
+			case "gradeCount":
+				if isAsc {
+					return len(courseA.Grades) < len(courseB.Grades)
+				}
+				return len(courseA.Grades) > len(courseB.Grades)
+			}
+			return false
+		})
 	}
 
 	return c.Render("partials/grades", fiber.Map{
@@ -340,5 +383,100 @@ func (h *GradeHandler) HandleImport(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": fmt.Sprintf("Successfully imported grades for %s", student.Name),
 		"student": student.Name,
+	})
+}
+
+// HandleGradesAPI returns grades data as JSON for the Excel-like table
+func (h *GradeHandler) HandleGradesAPI(c *fiber.Ctx) error {
+	if h.currentStudent == nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "No grades data available",
+		})
+	}
+
+	query := strings.ToLower(c.Query("q"))
+	sortBy := c.Query("sort")
+	sortDir := c.Query("dir")
+
+	// Create a grouped structure by course
+	var groupedCourses []map[string]interface{}
+
+	for _, course := range h.currentStudent.Grades {
+		if query == "" || strings.Contains(strings.ToLower(course.Name), query) {
+			// Create course object with its grades
+			courseData := map[string]interface{}{
+				"course":     course.Name,
+				"courseAvg":  course.Average,
+				"gradeCount": len(course.Grades),
+				"grades":     []map[string]interface{}{},
+			}
+
+			// Add grades for this course
+			for _, grade := range course.Grades {
+				courseData["grades"] = append(courseData["grades"].([]map[string]interface{}), map[string]interface{}{
+					"title":         grade.Title,
+					"value":         grade.Value,
+					"outOf":         grade.OutOf,
+					"coefficient":   grade.Coefficient,
+					"date":          grade.Date.Format("2006-01-02"),
+					"dateFormatted": grade.Date.Format("02/01/06"),
+					"type":          grade.Type,
+					"remarks":       grade.Remarks,
+					"observation":   grade.Observation,
+				})
+			}
+
+			groupedCourses = append(groupedCourses, courseData)
+		}
+	}
+
+	// Sort the grouped courses
+	if sortBy != "" {
+		sort.Slice(groupedCourses, func(a, b int) bool {
+			courseA := groupedCourses[a]
+			courseB := groupedCourses[b]
+
+			isAsc := sortDir != "desc"
+
+			switch sortBy {
+			case "course":
+				courseNameA := courseA["course"].(string)
+				courseNameB := courseB["course"].(string)
+				if isAsc {
+					return strings.ToLower(courseNameA) < strings.ToLower(courseNameB)
+				}
+				return strings.ToLower(courseNameA) > strings.ToLower(courseNameB)
+			case "average":
+				avgA := courseA["courseAvg"].(float64)
+				avgB := courseB["courseAvg"].(float64)
+				if isAsc {
+					return avgA < avgB
+				}
+				return avgA > avgB
+			case "gradeCount":
+				countA := courseA["gradeCount"].(int)
+				countB := courseB["gradeCount"].(int)
+				if isAsc {
+					return countA < countB
+				}
+				return countA > countB
+			}
+			return false
+		})
+	}
+
+	// Calculate total grades across all courses
+	totalGrades := 0
+	for _, course := range groupedCourses {
+		totalGrades += course["gradeCount"].(int)
+	}
+
+	return c.JSON(fiber.Map{
+		"student": map[string]interface{}{
+			"name":         h.currentStudent.Name,
+			"totalAverage": h.currentStudent.TotalAverage,
+		},
+		"courses": groupedCourses,
+		"total":   totalGrades,
 	})
 }
