@@ -38,7 +38,7 @@ func SetupRoutes(app *fiber.App, sessionManager *session.Manager) {
 	app.Get("/ws", websocket.New(handlers.WebSocketHandler))
 
 	// Static routes
-	app.Static("/static", "./static")
+	// app.Static("/static", "./static")
 	app.Static("/assets", "./assets/dist")
 
 	// API routes

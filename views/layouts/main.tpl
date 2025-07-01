@@ -137,9 +137,7 @@
         }
       </script>
 
-
-
-  <head>
+  </head>
   <body class="flex flex-col min-h-screen" x-data="{ searchQuery: '' }">
     {{template "partials/header" .}}
     
