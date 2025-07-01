@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/template/html/v2"
 
 	"scrapping/internals/utils"
+	"scrapping/internals/web/middleware"
 	"scrapping/internals/web/session"
 )
 
@@ -39,6 +40,12 @@ func New(engine *html.Engine) *fiber.App {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, HEAD, PUT, PATCH, POST, DELETE",
 	}))
+
+	// Add Matomo proxy middleware to bypass adblockers
+	if os.Getenv("MATOMO_URL") != "" && os.Getenv("MATOMO_SITE_ID") != "" {
+		app.Use(middleware.MatomoProxy())
+		app.Use(middleware.MatomoInjector())
+	}
 
 	engine.Reload(false)
 

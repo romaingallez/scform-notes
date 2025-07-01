@@ -41,6 +41,11 @@ func SetupRoutes(app *fiber.App, sessionManager *session.Manager) {
 	// app.Static("/static", "./static")
 	app.Static("/assets", "./assets/dist")
 
+	// Test route to verify proxy is working
+	app.Get("/test-matomo", func(c *fiber.Ctx) error {
+		return c.SendString("Matomo proxy test endpoint")
+	})
+
 	// API routes
 	app.Get("/", gradeHandler.HandleIndex)
 	app.Get("/about", gradeHandler.HandleAbout)
