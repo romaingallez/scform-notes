@@ -120,8 +120,8 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 	var browser *rod.Browser
 	var err error
 
-	// Set default timeout for all operations
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Set default timeout for all operations (increased to 5 minutes for complex scraping)
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
 	if remoteURL != "" {
@@ -227,13 +227,15 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		}
 	}
 
-	// Use a shorter wait timeout of 5 seconds
-	page.Timeout(5 * time.Second).MustWaitStable()
-
 	// Click the login button (new Angular structure)
-	loginButton := page.Timeout(5 * time.Second).MustElement("button[type='submit']")
-	loginButton.MustClick()
-	page.Timeout(5 * time.Second).MustWaitStable()
+	// before clinking test if password and username are not empty
+	if username == "" || password == "" {
+		return nil, fmt.Errorf("username and password are required")
+	} else {
+		loginButton := page.Timeout(5 * time.Second).MustElement("button[type='submit']")
+		loginButton.MustClick()
+		page.MustWaitStable()
+	}
 
 	// list open tabs
 	tabs := browser.MustPages()

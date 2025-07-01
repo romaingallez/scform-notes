@@ -175,3 +175,66 @@ ISC License
 ## 🤝 Contributing
 
 Contributions, issues, and feature requests are welcome!
+
+# SCForm Notes Viewer
+
+A web application to view and manage grades from SCForm (Student Course Form) system.
+
+## Features
+
+### Excel-like Table Interface
+- **Sortable Columns**: Click on any column header to sort by Matière, Évaluation, Note, Coefficient, Date, or Type
+- **Real-time Search**: Filter results by course name, evaluation title, or type
+- **Pagination**: Navigate through large datasets with configurable items per page (10, 25, 50, 100)
+- **Alternating Row Colors**: Excel-like zebra striping for better readability
+- **Responsive Design**: Works on desktop and mobile devices
+- **Live Updates**: Real-time progress updates during grade retrieval
+
+### Data Management
+- **Import/Export**: Import grades from JSON files or export to JSON/Excel formats
+- **Print Support**: Generate print-friendly versions of grade reports
+- **WebSocket Integration**: Real-time progress updates during data retrieval
+
+### User Interface
+- **Modern Design**: Clean, professional interface using Tailwind CSS
+- **Interactive Elements**: Hover effects, loading states, and smooth transitions
+- **Accessibility**: Keyboard navigation and screen reader support
+
+## Technology Stack
+
+- **Backend**: Go with Fiber framework
+- **Frontend**: Alpine.js for reactivity, HTMX for dynamic updates
+- **Styling**: Tailwind CSS with DaisyUI components
+- **Real-time**: WebSocket for progress updates
+- **Data Processing**: Chrome DevTools Protocol for web scraping
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies: `go mod download`
+3. Set environment variables (see Configuration section)
+4. Run the application: `go run main.go`
+
+## Configuration
+
+Set the following environment variables:
+- `SCFORM_URL`: Your SCForm instance URL
+- `SCFORM_USERNAME`: Default username (optional)
+- `SCFORM_PASSWORD`: Default password (optional)
+
+## Usage
+
+1. Navigate to the application in your browser
+2. Enter your SCForm credentials or use the default ones
+3. Click "Obtenir les Notes" to retrieve your grades
+4. Use the Excel-like table to sort, filter, and navigate your grades
+5. Export data or generate print reports as needed
+
+## API Endpoints
+
+- `GET /api/grades`: Returns grades data as JSON for the table interface
+- `POST /grades`: Initiates grade retrieval process
+- `GET /export`: Download grades as JSON
+- `GET /export/excel`: Download grades as Excel file
+- `POST /import`: Import grades from JSON file
+- `GET /print`: Generate print-friendly version

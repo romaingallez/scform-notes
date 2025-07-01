@@ -30,6 +30,7 @@
                            name="username" 
                            placeholder="Votre nom d'utilisateur"
                            value="{{if .DefaultUsername}}{{.DefaultUsername}}{{end}}"
+                           autocomplete="username"
                            class="input input-bordered w-full">
                 </div>
 
@@ -42,6 +43,7 @@
                            name="password" 
                            placeholder="Votre mot de passe"
                            value="{{if .DefaultPassword}}{{.DefaultPassword}}{{end}}"
+                           autocomplete="current-password"
                            class="input input-bordered w-full">
                 </div>
 
@@ -100,27 +102,28 @@
     </div>
 
     <div class="container mx-auto mt-8 mb-8 overflow-x-auto">
-        <div class="flex gap-4 mb-4">
+        <div class="flex gap-4 mb-4 w-full">
             <div class="card bg-gray-200 shadow-xl hidden flex-1" id="search-container">
                 <div class="card-body">
                     <div class="relative">
                         <input type="text"
                                id="search-input"
                                name="q"
-                               placeholder="Rechercher un cours..."
+                               placeholder="Rechercher un cours, évaluation ou type..."
                                class="input input-bordered w-full pl-10"
-                               hx-get="/search"
-                               hx-trigger="input changed delay:300ms, search"
-                               hx-target="#grades-container"
-                               hx-include="this"
-                               hx-indicator="#search-spinner">
+                               @input.debounce.300ms="
+                                   const gradesContainer = document.getElementById('grades-container');
+                                   if (gradesContainer && gradesContainer._x_dataStack) {
+                                       const alpineData = gradesContainer._x_dataStack[0];
+                                       if (alpineData && alpineData.filterGrades) {
+                                           alpineData.filterGrades($event.target.value);
+                                       }
+                                   }
+                               ">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
                             </svg>
-                        </div>
-                        <div id="search-spinner" class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
-                            <span class="loading loading-spinner loading-sm text-primary"></span>
                         </div>
                     </div>
                 </div>
@@ -152,7 +155,7 @@
                 Télécharger Excel
             </button>
         </div>
-        <div id="grades-container" class="overflow-x-auto"></div>
+        <div id="grades-container" class="overflow-x-auto w-full min-h-96"></div>
     </div>
 </div>
 
@@ -354,6 +357,17 @@
             document.getElementById('print-button').classList.remove('hidden');
             document.getElementById('download-button').classList.remove('hidden');
             document.getElementById('excel-download-button').classList.remove('hidden');
+            
+            // Initialize Alpine.js data for the grades table after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                const gradesContainer = document.getElementById('grades-container');
+                if (gradesContainer && gradesContainer._x_dataStack) {
+                    const alpineData = gradesContainer._x_dataStack[0];
+                    if (alpineData && alpineData.loadGrades) {
+                        alpineData.loadGrades();
+                    }
+                }
+            }, 100);
         }
     });
 
@@ -430,14 +444,28 @@
             // Clear the file input
             document.getElementById('json_file').value = '';
             
-            // Load the imported grades
-            htmx.ajax('GET', '/search', '#grades-container');
-            
-            // Show the action buttons
-            document.getElementById('search-container').classList.remove('hidden');
-            document.getElementById('print-button').classList.remove('hidden');
-            document.getElementById('download-button').classList.remove('hidden');
-            document.getElementById('excel-download-button').classList.remove('hidden');
+            // Load the imported grades by rendering the grades template
+            htmx.ajax('GET', '/search', {
+                target: '#grades-container',
+                swap: 'innerHTML'
+            }).then(() => {
+                // After the template is loaded, initialize Alpine.js component
+                setTimeout(() => {
+                    const gradesContainer = document.getElementById('grades-container');
+                    if (gradesContainer && gradesContainer._x_dataStack) {
+                        const alpineData = gradesContainer._x_dataStack[0];
+                        if (alpineData && alpineData.loadGrades) {
+                            alpineData.loadGrades();
+                        }
+                    }
+                }, 100);
+                
+                // Show the action buttons
+                document.getElementById('search-container').classList.remove('hidden');
+                document.getElementById('print-button').classList.remove('hidden');
+                document.getElementById('download-button').classList.remove('hidden');
+                document.getElementById('excel-download-button').classList.remove('hidden');
+            });
             
             // Auto-hide success message after 5 seconds
             setTimeout(() => {
@@ -465,4 +493,127 @@
     document.body.addEventListener('htmx:beforeRedirect', function(evt) {
         // Remove the window.close() behavior as it's not needed
     });
+
+    // Alpine.js component for grades table
+    function gradesTable() {
+        return {
+            courses: [],
+            filteredCourses: [],
+            paginatedCourses: [],
+            searchQuery: '',
+            sortField: '',
+            sortDirection: 'asc',
+            currentPage: 1,
+            itemsPerPage: 25,
+            totalPages: 0,
+            totalGrades: 0,
+            loading: false,
+
+            async loadGrades() {
+                this.loading = true;
+                try {
+                    const response = await fetch('/api/grades');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.courses = data.courses || [];
+                        this.totalGrades = data.total || 0;
+                        this.filteredCourses = [...this.courses];
+                        this.updatePagination();
+                    } else {
+                        console.error('Failed to load grades');
+                        this.courses = [];
+                        this.filteredCourses = [];
+                    }
+                } catch (error) {
+                    console.error('Error loading grades:', error);
+                    this.courses = [];
+                    this.filteredCourses = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            filterGrades(query) {
+                this.searchQuery = query.toLowerCase();
+                this.filteredCourses = this.courses.filter(course => 
+                    course.course.toLowerCase().includes(this.searchQuery) ||
+                    course.grades.some(grade => 
+                        grade.title.toLowerCase().includes(this.searchQuery) ||
+                        grade.type.toLowerCase().includes(this.searchQuery)
+                    )
+                );
+                this.currentPage = 1;
+                this.updatePagination();
+            },
+
+            sortBy(field) {
+                if (this.sortField === field) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortField = field;
+                    this.sortDirection = 'asc';
+                }
+
+                this.filteredCourses.sort((a, b) => {
+                    let valueA, valueB;
+                    
+                    switch (field) {
+                        case 'course':
+                            valueA = a.course.toLowerCase();
+                            valueB = b.course.toLowerCase();
+                            break;
+                        case 'courseAvg':
+                            valueA = a.courseAvg;
+                            valueB = b.courseAvg;
+                            break;
+                        case 'gradeCount':
+                            valueA = a.gradeCount;
+                            valueB = b.gradeCount;
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (valueA < valueB) {
+                        return this.sortDirection === 'asc' ? -1 : 1;
+                    }
+                    if (valueA > valueB) {
+                        return this.sortDirection === 'asc' ? 1 : -1;
+                    }
+                    return 0;
+                });
+
+                this.updatePagination();
+            },
+
+            updatePagination() {
+                this.totalPages = Math.ceil(this.filteredCourses.length / this.itemsPerPage);
+                this.currentPage = Math.min(this.currentPage, Math.max(1, this.totalPages));
+                
+                const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+                const endIndex = startIndex + this.itemsPerPage;
+                this.paginatedCourses = this.filteredCourses.slice(startIndex, endIndex);
+            },
+
+            nextPage() {
+                if (this.currentPage < this.totalPages) {
+                    this.currentPage++;
+                    this.updatePagination();
+                }
+            },
+
+            previousPage() {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.updatePagination();
+                }
+            },
+
+            init() {
+                this.$watch('itemsPerPage', () => {
+                    this.updatePagination();
+                });
+            }
+        };
+    }
 </script>
