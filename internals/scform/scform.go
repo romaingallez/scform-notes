@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -151,10 +152,19 @@ func GetStudentGrades(scformURL, username, password string, progressChan chan<- 
 		// if err != nil {
 		// 	return nil, fmt.Errorf("failed to connect to remote browser: %v", err)
 		// }
-		DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
-		browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
-		browser.MustIgnoreCertErrors(true)
-		browser = browser.NoDefaultDevice()
+		// remote url can have two url in one string separated by a comma please split and get one at random if no comma, use the url as is
+		if !strings.Contains(remoteURL, ",") {
+			DebugLog("Connecting to remote browser via direct URL: %s", remoteURL)
+			browser = rod.New().ControlURL(remoteURL).Context(ctx).MustConnect()
+		} else {
+			urls := strings.Split(remoteURL, ",")
+			randomURL := urls[rand.Intn(len(urls))]
+			randomURL = strings.TrimSpace(randomURL)
+			DebugLog("Connecting to remote browser via direct URL: %s", randomURL)
+			browser = rod.New().ControlURL(randomURL).Context(ctx).MustConnect()
+			browser.MustIgnoreCertErrors(true)
+			browser = browser.NoDefaultDevice()
+		}
 	} else {
 		// use already installed chrome browser
 		chromePath := os.Getenv("CHROME_PATH")
