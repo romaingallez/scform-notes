@@ -31,21 +31,14 @@ func InitAssets() {
 
 	log.Println("Initializing assets")
 	baseAssetDir := "./assets/dist"
-	// delete existing asset directory if it exists to remove temp files
-	if _, err := os.Stat(baseAssetDir); !os.IsNotExist(err) {
-		log.Println("Removing existing asset directory")
-		err := os.RemoveAll(baseAssetDir)
+	// if the directory does not exist, create it
+	if _, err := os.Stat(baseAssetDir); os.IsNotExist(err) {
+		log.Println("Creating asset directory")
+		err := os.MkdirAll(baseAssetDir, 0755)
 		if err != nil {
-			log.Println("Error removing asset directory")
+			log.Println("Error creating asset directory")
 			log.Println(err)
 		}
-	}
-	// create asset directory
-	log.Println("Creating asset directory")
-	err := os.MkdirAll(baseAssetDir, 0755)
-	if err != nil {
-		log.Println("Error creating asset directory")
-		log.Println(err)
 	}
 
 	for assetName, assetURL := range Assets {
