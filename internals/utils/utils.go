@@ -63,7 +63,7 @@ func InitAssets() {
 		// DownloadFile(baseAssetDir+"/"+assetName, assetURL)
 	}
 
-	// Copy 'assets/src/style.css' to 'assets/dist/style.css'
+	// Copy 'assets/src/style.css' to 'assets/dist/style.css'pn
 
 	if _, err := os.Stat(baseAssetDir + "/style.css"); os.IsNotExist(err) {
 		log.Println("Copying style.css")

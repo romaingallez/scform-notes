@@ -1,6 +1,8 @@
 services:
   app:
-    build: ./docker/Dockerfile
+    build: 
+      context: ./docker
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:
