@@ -140,7 +140,7 @@
 
 
   <head>
-  <body class="flex flex-col h-screen" x-data="{ searchQuery: '' }">
+  <body class="flex flex-col min-h-screen" x-data="{ searchQuery: '' }">
     {{template "partials/header" .}}
     
     <main class="bg-gray-200 flex-grow">
