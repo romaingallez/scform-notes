@@ -113,7 +113,6 @@ Vous pouvez également utiliser Docker Compose pour exécuter les deux conteneur
 
 1. Créer un fichier `docker-compose.yml` :
    ```yaml
-   version: '3'
    services:
      app:
        build: .
@@ -151,7 +150,7 @@ Vous pouvez également utiliser Docker Compose pour exécuter les deux conteneur
   go install github.com/cosmtrek/air@latest
 
   # Exécuter l'application avec Air
-  air
+  air -c .air.toml
   ```
 - La logique de base est organisée dans le répertoire `internals` :
   - `scform/` : Fonctionnalités liées aux formulaires
