@@ -73,6 +73,18 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 	go func() {
 		defer close(progressChan)
 
+		// Add panic recovery
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic in grade retrieval goroutine: %v", r)
+				BroadcastProgress(map[string]interface{}{
+					"status":   "error",
+					"message":  fmt.Sprintf("Panic occurred: %v", r),
+					"progress": 1.0,
+				})
+			}
+		}()
+
 		// Start a goroutine to handle progress updates
 		go func() {
 			for progress := range progressChan {
@@ -186,6 +198,37 @@ func (h *GradeHandler) HandlePrint(c *fiber.Ctx) error {
 
 	return c.Render("print", fiber.Map{
 		"Student":      h.currentStudent,
+		"AcademicYear": academicYear,
+	}, "layouts/no_partial")
+}
+
+func (h *GradeHandler) HandlePrintDemo(c *fiber.Ctx) error {
+	// geneareate a fake student
+	student := &scform.Student{
+		Name:   "John Doe",
+		Grades: []scform.Course{},
+	}
+
+	for i := 0; i < 10; i++ {
+		student.Grades = append(student.Grades, scform.Course{
+			Name:   fmt.Sprintf("Course %d", i),
+			Grades: []scform.Grade{},
+		})
+		for j := 0; j < 3; j++ {
+			student.Grades[i].Grades = append(student.Grades[i].Grades, scform.Grade{
+				Title: fmt.Sprintf("Midterm %d", j),
+				Value: float64(j),
+				Date:  time.Now(),
+			})
+		}
+	}
+
+	// Get current year for the academic year display
+	currentYear := time.Now().Year()
+	academicYear := fmt.Sprintf("%d-%d", currentYear-1, currentYear)
+
+	return c.Render("print", fiber.Map{
+		"Student":      student,
 		"AcademicYear": academicYear,
 	}, "layouts/no_partial")
 }

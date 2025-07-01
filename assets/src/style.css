@@ -1,3 +1,275 @@
 [x-cloak] {
     display: none !important;
   }
+
+/* Print-specific styles */
+@media print {
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Arial', sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #000;
+        background: white;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-container {
+        max-width: 210mm;
+        margin: 0 auto;
+        padding: 10mm;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 15mm;
+        border-bottom: 2px solid #333;
+        padding-bottom: 5mm;
+    }
+
+    .header h1 {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 0 0 5mm 0;
+        color: #2c3e50;
+    }
+
+    .header h2 {
+        font-size: 16px;
+        font-weight: normal;
+        margin: 0;
+        color: #7f8c8d;
+    }
+
+    .student-info {
+        margin-bottom: 10mm;
+        text-align: center;
+    }
+
+    .student-info h3 {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 0;
+        color: #2c3e50;
+        border: 1px solid #bdc3c7;
+        padding: 3mm;
+        background-color: #ecf0f1;
+    }
+
+    .course-section {
+        margin-bottom: 8mm;
+        page-break-inside: avoid;
+    }
+
+    .grades-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5mm;
+        font-size: 11px;
+    }
+
+    .course-header {
+        background-color: #34495e;
+        color: white;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .course-header td {
+        padding: 2mm;
+        font-size: 12px;
+        border: 1px solid #2c3e50;
+    }
+
+    .grades-table th {
+        background-color: #ecf0f1;
+        color: #2c3e50;
+        font-weight: bold;
+        text-align: center;
+        padding: 2mm;
+        border: 1px solid #bdc3c7;
+        font-size: 10px;
+    }
+
+    .grades-table td {
+        padding: 1.5mm;
+        border: 1px solid #bdc3c7;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .grades-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .grades-table tr:hover {
+        background-color: #e8f4f8;
+    }
+
+    .total-average {
+        text-align: center;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 10mm;
+        padding: 3mm;
+        background-color: #2c3e50;
+        color: white;
+        border-radius: 2mm;
+    }
+
+    /* Back button styles for screen display */
+    .back-button {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #e74c3c;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .back-button:hover {
+        background-color: #c0392b;
+    }
+}
+
+/* Screen display styles (non-print) */
+@media screen {
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+
+    .print-container {
+        max-width: 210mm;
+        margin: 0 auto;
+        background: white;
+        padding: 20mm;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 5px;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 20px;
+    }
+
+    .header h1 {
+        font-size: 28px;
+        font-weight: bold;
+        margin: 0 0 10px 0;
+        color: #2c3e50;
+    }
+
+    .header h2 {
+        font-size: 18px;
+        font-weight: normal;
+        margin: 0;
+        color: #7f8c8d;
+    }
+
+    .student-info {
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .student-info h3 {
+        font-size: 22px;
+        font-weight: bold;
+        margin: 0;
+        color: #2c3e50;
+        border: 2px solid #bdc3c7;
+        padding: 15px;
+        background-color: #ecf0f1;
+        border-radius: 5px;
+    }
+
+    .course-section {
+        margin-bottom: 25px;
+    }
+
+    .grades-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+
+    .course-header {
+        background-color: #34495e;
+        color: white;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .course-header td {
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #2c3e50;
+    }
+
+    .grades-table th {
+        background-color: #ecf0f1;
+        color: #2c3e50;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+        border: 1px solid #bdc3c7;
+    }
+
+    .grades-table td {
+        padding: 8px;
+        border: 1px solid #bdc3c7;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .grades-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .grades-table tr:hover {
+        background-color: #e8f4f8;
+    }
+
+    .total-average {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #2c3e50;
+        color: white;
+        border-radius: 5px;
+    }
+
+    .back-button {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #e74c3c;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .back-button:hover {
+        background-color: #c0392b;
+    }
+}
