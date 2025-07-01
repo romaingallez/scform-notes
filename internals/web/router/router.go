@@ -12,7 +12,11 @@ import (
 	"github.com/gofiber/template/html/v2"
 
 	"scrapping/internals/utils"
+	"scrapping/internals/web/session"
 )
+
+// SessionManager holds the global session manager
+var SessionManager *session.Manager
 
 // New creates and configures a new Fiber application with all middleware and settings
 func New(engine *html.Engine) *fiber.App {
@@ -22,6 +26,13 @@ func New(engine *html.Engine) *fiber.App {
 			ViewsLayout: "layouts/main",
 		},
 	)
+
+	// Initialize session manager
+	SessionManager = session.NewManager()
+
+	// Setup session middleware
+	SessionManager.SetupSessionMiddleware(app)
+
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",

@@ -8,21 +8,106 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"scrapping/internals/scform"
+	"scrapping/internals/web/session"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+// temporaryStudentData holds student data temporarily before it's saved to session
+var (
+	tempStudentData = make(map[string]*scform.Student)
+	tempDataMux     sync.RWMutex
+)
+
 // GradeHandler holds the state and methods for handling grade-related requests
 type GradeHandler struct {
-	currentStudent *scform.Student
+	sessionManager *session.Manager
 }
 
 // NewGradeHandler creates a new instance of GradeHandler
-func NewGradeHandler() *GradeHandler {
-	return &GradeHandler{}
+func NewGradeHandler(sessionManager *session.Manager) *GradeHandler {
+	return &GradeHandler{
+		sessionManager: sessionManager,
+	}
+}
+
+// getSessionID helper function to get session ID from Fiber context
+func (h *GradeHandler) getSessionID(c *fiber.Ctx) string {
+	return h.sessionManager.GetSessionID(c)
+}
+
+// getCurrentStudent retrieves the current student from session or temporary storage
+func (h *GradeHandler) getCurrentStudent(c *fiber.Ctx) *scform.Student {
+	sessionID := h.getSessionID(c)
+	if sessionID == "" {
+		return nil
+	}
+
+	// First check temporary storage
+	tempDataMux.RLock()
+	if student, exists := tempStudentData[sessionID]; exists {
+		tempDataMux.RUnlock()
+		// Move from temp storage to session storage
+		h.setCurrentStudent(c, student)
+		// Remove from temp storage
+		tempDataMux.Lock()
+		delete(tempStudentData, sessionID)
+		tempDataMux.Unlock()
+		return student
+	}
+	tempDataMux.RUnlock()
+
+	// Then check session storage
+	sess, err := h.sessionManager.Store.Get(c)
+	if err != nil {
+		log.Printf("Failed to get session: %v", err)
+		return nil
+	}
+
+	studentData := sess.Get("currentStudent")
+	if studentData == nil {
+		return nil
+	}
+
+	// Try to unmarshal the student data
+	var student scform.Student
+	if studentBytes, ok := studentData.([]byte); ok {
+		if err := json.Unmarshal(studentBytes, &student); err != nil {
+			log.Printf("Failed to unmarshal student data: %v", err)
+			return nil
+		}
+		return &student
+	}
+
+	return nil
+}
+
+// setCurrentStudent stores the current student in session
+func (h *GradeHandler) setCurrentStudent(c *fiber.Ctx, student *scform.Student) error {
+	sess, err := h.sessionManager.Store.Get(c)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %v", err)
+	}
+
+	// Marshal student data
+	studentBytes, err := json.Marshal(student)
+	if err != nil {
+		return fmt.Errorf("failed to marshal student data: %v", err)
+	}
+
+	sess.Set("currentStudent", studentBytes)
+	return sess.Save()
+}
+
+// setTempStudentData stores student data temporarily by session ID
+func (h *GradeHandler) setTempStudentData(sessionID string, student *scform.Student) {
+	tempDataMux.Lock()
+	defer tempDataMux.Unlock()
+	tempStudentData[sessionID] = student
 }
 
 // HandleIndex renders the index page with default credentials
@@ -52,6 +137,13 @@ func (h *GradeHandler) HandleIndex(c *fiber.Ctx) error {
 
 // HandleGrades processes the grade retrieval request
 func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
+	sessionID := h.getSessionID(c)
+	if sessionID == "" {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to get session ID",
+		})
+	}
+
 	username := c.FormValue("username")
 	password := c.FormValue("password")
 	scformURL := c.FormValue("url")
@@ -74,10 +166,10 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 	go func() {
 		defer close(progressChan)
 
-		// Start a goroutine to handle progress updates
+		// Start a goroutine to handle progress updates for this specific session
 		go func() {
 			for progress := range progressChan {
-				BroadcastProgress(progress)
+				BroadcastProgressToSession(sessionID, progress)
 			}
 		}()
 
@@ -91,18 +183,18 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 				// Add panic recovery for each attempt
 				defer func() {
 					if r := recover(); r != nil {
-						log.Printf("Panic in grade retrieval goroutine (attempt %d/%d): %v", attempt, maxRetries, r)
+						log.Printf("Panic in grade retrieval goroutine (attempt %d/%d) for session %s: %v", attempt, maxRetries, sessionID, r)
 
 						if attempt < maxRetries {
-							log.Printf("Retrying in 2 seconds... (attempt %d/%d)", attempt+1, maxRetries)
-							BroadcastProgress(map[string]interface{}{
+							log.Printf("Retrying in 2 seconds... (attempt %d/%d) for session %s", attempt+1, maxRetries, sessionID)
+							BroadcastProgressToSession(sessionID, map[string]interface{}{
 								"status":   "retrying",
 								"message":  fmt.Sprintf("Attempt %d failed, retrying... (Error: %v)", attempt, r),
 								"progress": float64(attempt) / float64(maxRetries),
 							})
 							time.Sleep(2 * time.Second)
 						} else {
-							BroadcastProgress(map[string]interface{}{
+							BroadcastProgressToSession(sessionID, map[string]interface{}{
 								"status":   "error",
 								"message":  fmt.Sprintf("All %d attempts failed. Last error: %v", maxRetries, r),
 								"progress": 1.0,
@@ -116,15 +208,15 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 
 			// If we got a student successfully, break out of retry loop
 			if student != nil && err == nil {
-				log.Printf("Successfully retrieved grades on attempt %d", attempt)
+				log.Printf("Successfully retrieved grades on attempt %d for session %s", attempt, sessionID)
 				break
 			}
 
 			// If this is not the last attempt, log and retry
 			if attempt < maxRetries {
-				log.Printf("Error getting grades (attempt %d/%d): %v", attempt, maxRetries, err)
-				log.Printf("Retrying in 2 seconds... (attempt %d/%d)", attempt+1, maxRetries)
-				BroadcastProgress(map[string]interface{}{
+				log.Printf("Error getting grades (attempt %d/%d) for session %s: %v", attempt, maxRetries, sessionID, err)
+				log.Printf("Retrying in 2 seconds... (attempt %d/%d) for session %s", attempt+1, maxRetries, sessionID)
+				BroadcastProgressToSession(sessionID, map[string]interface{}{
 					"status":   "retrying",
 					"message":  fmt.Sprintf("Attempt %d failed, retrying... (Error: %v)", attempt, err),
 					"progress": float64(attempt) / float64(maxRetries),
@@ -135,8 +227,8 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 
 		// Check final result
 		if err != nil || student == nil {
-			log.Printf("All %d attempts failed. Final error: %v", maxRetries, err)
-			BroadcastProgress(map[string]interface{}{
+			log.Printf("All %d attempts failed for session %s. Final error: %v", maxRetries, sessionID, err)
+			BroadcastProgressToSession(sessionID, map[string]interface{}{
 				"status":   "error",
 				"message":  fmt.Sprintf("All %d attempts failed. Final error: %v", maxRetries, err),
 				"progress": 1.0,
@@ -144,8 +236,10 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 			return
 		}
 
-		h.currentStudent = student
-		BroadcastProgress(map[string]interface{}{
+		// Store student data in temporary storage (will be moved to session on next request)
+		h.setTempStudentData(sessionID, student)
+
+		BroadcastProgressToSession(sessionID, map[string]interface{}{
 			"status":   "success",
 			"message":  "Grades retrieved successfully",
 			"progress": 1.0,
@@ -161,7 +255,7 @@ func (h *GradeHandler) HandleGrades(c *fiber.Ctx) error {
 
 // HandleSearch handles the search and sort functionality
 func (h *GradeHandler) HandleSearch(c *fiber.Ctx) error {
-	if h.currentStudent == nil {
+	if h.getCurrentStudent(c) == nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "No grades data available",
 		})
@@ -173,13 +267,13 @@ func (h *GradeHandler) HandleSearch(c *fiber.Ctx) error {
 
 	// Create a copy of the student data
 	filteredStudent := &scform.Student{
-		Name:         h.currentStudent.Name,
-		TotalAverage: h.currentStudent.TotalAverage,
+		Name:         h.getCurrentStudent(c).Name,
+		TotalAverage: h.getCurrentStudent(c).TotalAverage,
 		Grades:       []scform.Course{},
 	}
 
 	// Filter courses
-	for _, course := range h.currentStudent.Grades {
+	for _, course := range h.getCurrentStudent(c).Grades {
 		if query == "" || strings.Contains(strings.ToLower(course.Name), query) {
 			// Create a copy of the course
 			filteredCourse := scform.Course{
@@ -232,7 +326,7 @@ func (h *GradeHandler) HandleSearch(c *fiber.Ctx) error {
 
 // HandlePrint renders the print-friendly version of the grades
 func (h *GradeHandler) HandlePrint(c *fiber.Ctx) error {
-	if h.currentStudent == nil {
+	if h.getCurrentStudent(c) == nil {
 		return c.Redirect("/")
 	}
 
@@ -241,7 +335,7 @@ func (h *GradeHandler) HandlePrint(c *fiber.Ctx) error {
 	academicYear := fmt.Sprintf("%d-%d", currentYear-1, currentYear)
 
 	return c.Render("print", fiber.Map{
-		"Student":      h.currentStudent,
+		"Student":      h.getCurrentStudent(c),
 		"AcademicYear": academicYear,
 	}, "layouts/no_partial")
 }
@@ -279,13 +373,13 @@ func (h *GradeHandler) HandlePrintDemo(c *fiber.Ctx) error {
 
 // HandleExport handles the export of grades to JSON
 func (h *GradeHandler) HandleExport(c *fiber.Ctx) error {
-	if h.currentStudent == nil {
+	if h.getCurrentStudent(c) == nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "No grades data available",
 		})
 	}
 
-	jsonData, err := scform.ExportToJSON(h.currentStudent)
+	jsonData, err := scform.ExportToJSON(h.getCurrentStudent(c))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
@@ -299,13 +393,13 @@ func (h *GradeHandler) HandleExport(c *fiber.Ctx) error {
 
 // HandleExcelExport handles the export of grades to Excel
 func (h *GradeHandler) HandleExcelExport(c *fiber.Ctx) error {
-	if h.currentStudent == nil {
+	if h.getCurrentStudent(c) == nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "No grades data available",
 		})
 	}
 
-	f, err := scform.ExportToExcel(h.currentStudent)
+	f, err := scform.ExportToExcel(h.getCurrentStudent(c))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
@@ -373,7 +467,7 @@ func (h *GradeHandler) HandleImport(c *fiber.Ctx) error {
 	student.CalculateTotalAverage()
 
 	// Set as current student
-	h.currentStudent = &student
+	h.setCurrentStudent(c, &student)
 
 	// Log successful import
 	log.Printf("Successfully imported grades for student: %s", student.Name)
@@ -388,7 +482,7 @@ func (h *GradeHandler) HandleImport(c *fiber.Ctx) error {
 
 // HandleGradesAPI returns grades data as JSON for the Excel-like table
 func (h *GradeHandler) HandleGradesAPI(c *fiber.Ctx) error {
-	if h.currentStudent == nil {
+	if h.getCurrentStudent(c) == nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "No grades data available",
 		})
@@ -401,7 +495,7 @@ func (h *GradeHandler) HandleGradesAPI(c *fiber.Ctx) error {
 	// Create a grouped structure by course
 	var groupedCourses []map[string]interface{}
 
-	for _, course := range h.currentStudent.Grades {
+	for _, course := range h.getCurrentStudent(c).Grades {
 		if query == "" || strings.Contains(strings.ToLower(course.Name), query) {
 			// Create course object with its grades
 			courseData := map[string]interface{}{
@@ -473,8 +567,8 @@ func (h *GradeHandler) HandleGradesAPI(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"student": map[string]interface{}{
-			"name":         h.currentStudent.Name,
-			"totalAverage": h.currentStudent.TotalAverage,
+			"name":         h.getCurrentStudent(c).Name,
+			"totalAverage": h.getCurrentStudent(c).TotalAverage,
 		},
 		"courses": groupedCourses,
 		"total":   totalGrades,
