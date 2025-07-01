@@ -1,14 +1,14 @@
 services:
-  # app:
-  #   build: .
-  #   ports:
-  #     - "3000:3000"
-  #   env_file:
-  #     - .env.docker
-  #   depends_on:
-  #     - chrome
-  #   networks:
-  #     - scform-network
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    depends_on:
+      - chrome
+    networks:
+      - scform-network
 
   chrome:
     image: ghcr.io/browserless/chromium
