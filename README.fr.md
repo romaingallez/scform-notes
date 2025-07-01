@@ -1,5 +1,7 @@
 # SCForm Notes
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/99XCDj?referralCode=-nFAKR)
+
 ## Objectif du Projet
 
 SCForm Notes est une application d'assistance conçue pour extraire et gérer les informations de notes depuis GALIA, un système de gestion d'apprentissage/ERP utilisé par les établissements d'enseignement. Cet outil répond à des limitations spécifiques de GALIA, qui ne propose pas :

@@ -1,5 +1,7 @@
 # SCForm Notes
 
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/99XCDj?referralCode=-nFAKR)
+
 ## Project Purpose
 
 SCForm Notes is a helper application designed to extract and manage grade information from GALIA, a learning management system/ERP used by educational institutions. This tool addresses specific limitations of GALIA, which does not provide:
