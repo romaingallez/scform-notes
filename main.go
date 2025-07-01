@@ -43,8 +43,8 @@ func main() {
 	// Initialize the router with all middleware
 	app := router.New(engine)
 
-	// Setup all routes
-	router.SetupRoutes(app)
+	// Setup all routes with the session manager
+	router.SetupRoutes(app, router.SessionManager)
 
 	// Start server
 	log.Fatal(app.Listen(":3000"))

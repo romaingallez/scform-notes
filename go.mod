@@ -6,7 +6,7 @@ require (
 	github.com/go-rod/rod v0.116.2
 	github.com/gobwas/ws v1.3.2
 	github.com/gofiber/contrib/websocket v1.3.3
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/gofiber/template/html/v2 v2.1.3
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/joho/godotenv v1.5.1
