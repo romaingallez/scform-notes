@@ -6,3 +6,28 @@ grades.json
 node_modules/
 assets/dist/
 tmp/
+
+# IDEs
+.idea/
+.vscode/
+.cursor/
+.cursorrules
+.cursorignore
+.cursorignorerules
+.cursorignorerules
+.windsurf/
+
+# Go
+scform-notes
+
+# Windows
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.exp
+*.ilk
+*.log
+*.txt
+*.json
