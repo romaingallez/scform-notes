@@ -51,6 +51,39 @@
                 </button>
             </form>
 
+            <!-- Divider -->
+            <div class="divider text-gray-500 my-6">OU</div>
+
+            <!-- Import JSON Form -->
+            <form id="import-form" 
+                  enctype="multipart/form-data"
+                  hx-post="/import" 
+                  hx-target="#import-status"
+                  hx-on::after-request="handleImportResponse(event)"
+                  class="space-y-4">
+                
+                <div class="form-control w-full">
+                    <label for="json_file" class="label">
+                        <span class="label-text">Importer un fichier JSON de notes</span>
+                    </label>
+                    <input type="file" 
+                           id="json_file" 
+                           name="json_file" 
+                           accept=".json"
+                           class="file-input file-input-bordered w-full">
+                </div>
+
+                <button type="submit" 
+                        class="btn btn-outline btn-secondary w-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Importer les Notes
+                </button>
+            </form>
+
+            <div id="import-status" class="mt-4"></div>
+
             <div id="progress-container" class="hidden mt-4">
                 <div class="w-full bg-gray-300 rounded-full h-2.5">
                     <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
@@ -375,6 +408,56 @@
             popup.focus();
         } else {
             alert('Please allow popups for this website to use the print feature.');
+        }
+    }
+
+    function handleImportResponse(event) {
+        const xhr = event.detail.xhr;
+        const response = JSON.parse(xhr.responseText);
+        const statusDiv = document.getElementById('import-status');
+        
+        if (xhr.status === 200 && response.status === 'success') {
+            // Success - show success message
+            statusDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${response.message}</span>
+                </div>
+            `;
+            
+            // Clear the file input
+            document.getElementById('json_file').value = '';
+            
+            // Load the imported grades
+            htmx.ajax('GET', '/search', '#grades-container');
+            
+            // Show the action buttons
+            document.getElementById('search-container').classList.remove('hidden');
+            document.getElementById('print-button').classList.remove('hidden');
+            document.getElementById('download-button').classList.remove('hidden');
+            document.getElementById('excel-download-button').classList.remove('hidden');
+            
+            // Auto-hide success message after 5 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        } else {
+            // Error - show error message
+            statusDiv.innerHTML = `
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${response.error || 'Erreur lors de l\'importation'}</span>
+                </div>
+            `;
+            
+            // Auto-hide error message after 8 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 8000);
         }
     }
 

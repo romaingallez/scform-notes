@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -281,4 +282,63 @@ func (h *GradeHandler) HandleExcelExport(c *fiber.Ctx) error {
 	fSize := fReader.Len()
 
 	return c.SendStream(fReader, fSize)
+}
+
+// HandleImport handles the import of grades from JSON file
+func (h *GradeHandler) HandleImport(c *fiber.Ctx) error {
+	// Get uploaded file
+	file, err := c.FormFile("json_file")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "No file uploaded or file upload failed",
+		})
+	}
+
+	// Check file extension
+	if !strings.HasSuffix(strings.ToLower(file.Filename), ".json") {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "File must be a JSON file",
+		})
+	}
+
+	// Open the uploaded file
+	src, err := file.Open()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to open uploaded file",
+		})
+	}
+	defer src.Close()
+
+	// Read file content
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(src); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to read file content",
+		})
+	}
+
+	// Parse JSON into Student struct
+	var student scform.Student
+	if err := json.Unmarshal(buf.Bytes(), &student); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid JSON format or incompatible structure",
+		})
+	}
+
+	// Recalculate averages to ensure consistency
+	student.CalculateTotalAverage()
+
+	// Set as current student
+	h.currentStudent = &student
+
+	// Log successful import
+	log.Printf("Successfully imported grades for student: %s", student.Name)
+
+	// Return success response
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": fmt.Sprintf("Successfully imported grades for %s", student.Name),
+		"student": student.Name,
+	})
 }
