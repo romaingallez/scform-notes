@@ -1,56 +1,85 @@
-# Build frontend assets
-FROM node:20-alpine AS frontend-builder
+# Multi-stage Dockerfile for scform-notes
+
+# Stage 1: Build frontend assets (Tailwind CSS)
+FROM node:18-alpine AS frontend-builder
+
+# Set working directory
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@latest
-
-# Copy frontend-related files
+# Copy package files for frontend dependencies
 COPY package.json pnpm-lock.yaml ./
-COPY postcss.config.js tailwind.config.js ./
-COPY assets/ ./assets/
+
+# Install pnpm and frontend dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Copy frontend source files
+COPY tailwind.config.js postcss.config.js ./
+COPY assets/src/ ./assets/src/
 COPY views/ ./views/
 
-# Install dependencies and build frontend
-RUN pnpm install --frozen-lockfile
 # Create dist directory for Tailwind build
 RUN mkdir -p ./assets/dist
+
+# Build Tailwind CSS
 RUN pnpm run build
 
-# Build Go backend
-FROM golang:1.24-alpine AS backend-builder
-WORKDIR /app
+# Stage 2: Build Go application
+FROM golang:1.24-alpine AS go-builder
 
 # Install build dependencies
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache git ca-certificates tzdata
 
-# Copy Go files
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY main.go ./
-COPY internals/ ./internals/
-COPY views/ ./views/
-
-# Build the Go binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
-
-# Final stage
-FROM alpine:3.19
+# Set working directory
 WORKDIR /app
 
-# Install runtime dependencies if needed
-RUN apk add --no-cache ca-certificates
+# Copy go mod files
+COPY go.mod go.sum ./
 
-# Copy assets source files (dist will be created by InitAssets)
-COPY --from=frontend-builder /app/assets/src /app/assets/src
-COPY --from=frontend-builder /app/views /app/views
+# Download dependencies
+RUN go mod download
 
-# Copy the Go binary
-COPY --from=backend-builder /app/main /app/
+# Copy source code
+COPY . .
 
-# Expose the port your application runs on
+# Copy built frontend assets from previous stage
+COPY --from=frontend-builder /app/assets/dist/ ./assets/dist/
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+
+# Stage 3: Final runtime image
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=go-builder /app/main .
+
+# Copy views and other static files
+COPY --from=go-builder /app/views/ ./views/
+COPY --from=go-builder /app/assets/dist/ ./assets/dist/
+COPY --from=frontend-builder /app/assets/src/ ./assets/src/
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Run the application
 CMD ["./main"]
